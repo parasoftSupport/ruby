@@ -259,22 +259,22 @@ VALUE rb_fs;
 static inline const char *
 search_nonascii(const char *p, const char *e)
 {
-#if SIZEOF_VALUE == 8
+#if SIZEOF_VOIDP == 8
 # define NONASCII_MASK 0x8080808080808080ULL
-#elif SIZEOF_VALUE == 4
+#elif SIZEOF_VOIDP == 4
 # define NONASCII_MASK 0x80808080UL
 #endif
 #ifdef NONASCII_MASK
-    if ((int)sizeof(VALUE) * 2 < e - p) {
-        const VALUE *s, *t;
-        const VALUE lowbits = sizeof(VALUE) - 1;
-        s = (const VALUE*)(~lowbits & ((VALUE)p + lowbits));
+    if ((int)SIZEOF_VOIDP * 2 < e - p) {
+        const uintptr_t *s, *t;
+        const uintptr_t lowbits = SIZEOF_VOIDP - 1;
+        s = (const uintptr_t*)(~lowbits & ((uintptr_t)p + lowbits));
         while (p < (const char *)s) {
             if (!ISASCII(*p))
                 return p;
             p++;
         }
-        t = (const VALUE*)(~lowbits & (VALUE)e);
+        t = (const uintptr_t*)(~lowbits & (uintptr_t)e);
         while (s < t) {
             if (*s & NONASCII_MASK) {
                 t = s;
@@ -823,16 +823,17 @@ rb_str_new_frozen(VALUE orig)
     else {
 	if (FL_TEST(orig, STR_SHARED)) {
 	    VALUE shared = RSTRING(orig)->as.heap.aux.shared;
-	    long ofs = RSTRING_LEN(shared) - RSTRING_LEN(orig);
+	    long ofs = RSTRING_PTR(orig) - RSTRING_PTR(shared);
+	    long rest = RSTRING_LEN(shared) - ofs - RSTRING_LEN(orig);
 	    assert(OBJ_FROZEN(shared));
 
-	    if ((ofs > 0) ||
+	    if ((ofs > 0) || (rest > 0) ||
 		(klass != RBASIC(shared)->klass) ||
 		((RBASIC(shared)->flags ^ RBASIC(orig)->flags) & FL_TAINT) ||
 		ENCODING_GET(shared) != ENCODING_GET(orig)) {
 		str = str_new_shared(klass, shared);
 		RSTRING(str)->as.heap.ptr += ofs;
-		RSTRING(str)->as.heap.len -= ofs;
+		RSTRING(str)->as.heap.len -= ofs + rest;
 	    }
 	    else {
 		return shared;
@@ -1075,6 +1076,41 @@ rb_str_init(int argc, VALUE *argv, VALUE str)
     return str;
 }
 
+#ifdef NONASCII_MASK
+#define is_utf8_lead_byte(c) (((c)&0xC0) != 0x80)
+
+/*
+ * UTF-8 leading bytes have either 0xxxxxxx or 11xxxxxx
+ * bit representation. (see http://en.wikipedia.org/wiki/UTF-8)
+ * Therefore, following pseudo code can detect UTF-8 leading byte.
+ *
+ * if (!(byte & 0x80))
+ *   byte |= 0x40;          // turn on bit6
+ * return ((byte>>6) & 1);  // bit6 represent it's leading byte or not.
+ *
+ * This function calculate every bytes in the argument word `s'
+ * using the above logic concurrently. and gather every bytes result.
+ */
+static inline uintptr_t
+count_utf8_lead_bytes_with_word(const uintptr_t *s)
+{
+    uintptr_t d = *s;
+
+    /* Transform into bit0 represent UTF-8 leading or not. */
+    d |= ~(d>>1);
+    d >>= 6;
+    d &= NONASCII_MASK >> 7;
+
+    /* Gather every bytes. */
+    d += (d>>8);
+    d += (d>>16);
+#if SIZEOF_VOIDP == 8
+    d += (d>>32);
+#endif
+    return (d&0xF);
+}
+#endif
+
 static inline long
 enc_strlen(const char *p, const char *e, rb_encoding *enc, int cr)
 {
@@ -1084,6 +1120,31 @@ enc_strlen(const char *p, const char *e, rb_encoding *enc, int cr)
     if (rb_enc_mbmaxlen(enc) == rb_enc_mbminlen(enc)) {
         return (e - p + rb_enc_mbminlen(enc) - 1) / rb_enc_mbminlen(enc);
     }
+#ifdef NONASCII_MASK
+    else if (cr == ENC_CODERANGE_VALID && enc == rb_utf8_encoding()) {
+	uintptr_t len = 0;
+	if ((int)sizeof(uintptr_t) * 2 < e - p) {
+	    const uintptr_t *s, *t;
+	    const uintptr_t lowbits = sizeof(uintptr_t) - 1;
+	    s = (const uintptr_t*)(~lowbits & ((uintptr_t)p + lowbits));
+	    t = (const uintptr_t*)(~lowbits & (uintptr_t)e);
+	    while (p < (const char *)s) {
+		if (is_utf8_lead_byte(*p)) len++;
+		p++;
+	    }
+	    while (s < t) {
+		len += count_utf8_lead_bytes_with_word(s);
+		s++;
+	    }
+	    p = (const char *)s;
+	}
+	while (p < e) {
+	    if (is_utf8_lead_byte(*p)) len++;
+	    p++;
+	}
+	return (long)len;
+    }
+#endif
     else if (rb_enc_asciicompat(enc)) {
         c = 0;
 	if (cr == ENC_CODERANGE_7BIT || cr == ENC_CODERANGE_VALID) {
@@ -1127,6 +1188,9 @@ rb_enc_strlen(const char *p, const char *e, rb_encoding *enc)
     return enc_strlen(p, e, enc, ENC_CODERANGE_UNKNOWN);
 }
 
+/* To get strlen with cr
+ * Note that given cr is not used.
+ */
 long
 rb_enc_strlen_cr(const char *p, const char *e, rb_encoding *enc, int *cr)
 {
@@ -1183,46 +1247,11 @@ rb_enc_strlen_cr(const char *p, const char *e, rb_encoding *enc, int *cr)
     return c;
 }
 
-#ifdef NONASCII_MASK
-#define is_utf8_lead_byte(c) (((c)&0xC0) != 0x80)
-
-/*
- * UTF-8 leading bytes have either 0xxxxxxx or 11xxxxxx
- * bit representation. (see http://en.wikipedia.org/wiki/UTF-8)
- * Therefore, following pseudo code can detect UTF-8 leading byte.
- *
- * if (!(byte & 0x80))
- *   byte |= 0x40;          // turn on bit6
- * return ((byte>>6) & 1);  // bit6 represent it's leading byte or not.
- *
- * This function calculate every bytes in the argument word `s'
- * using the above logic concurrently. and gather every bytes result.
- */
-static inline VALUE
-count_utf8_lead_bytes_with_word(const VALUE *s)
-{
-    VALUE d = *s;
-
-    /* Transform into bit0 represent UTF-8 leading or not. */
-    d |= ~(d>>1);
-    d >>= 6;
-    d &= NONASCII_MASK >> 7;
-
-    /* Gather every bytes. */
-    d += (d>>8);
-    d += (d>>16);
-#if SIZEOF_VALUE == 8
-    d += (d>>32);
-#endif
-    return (d&0xF);
-}
-#endif
-
+/* enc must be str's enc or rb_enc_check(str, str2) */
 static long
 str_strlen(VALUE str, rb_encoding *enc)
 {
     const char *p, *e;
-    long n;
     int cr;
 
     if (single_byte_optimizable(str)) return RSTRING_LEN(str);
@@ -1230,44 +1259,21 @@ str_strlen(VALUE str, rb_encoding *enc)
     p = RSTRING_PTR(str);
     e = RSTRING_END(str);
     cr = ENC_CODERANGE(str);
-#ifdef NONASCII_MASK
-    if (ENC_CODERANGE(str) == ENC_CODERANGE_VALID &&
-        enc == rb_utf8_encoding()) {
 
-	VALUE len = 0;
-	if ((int)sizeof(VALUE) * 2 < e - p) {
-	    const VALUE *s, *t;
-	    const VALUE lowbits = sizeof(VALUE) - 1;
-	    s = (const VALUE*)(~lowbits & ((VALUE)p + lowbits));
-	    t = (const VALUE*)(~lowbits & (VALUE)e);
-	    while (p < (const char *)s) {
-		if (is_utf8_lead_byte(*p)) len++;
-		p++;
-	    }
-	    while (s < t) {
-		len += count_utf8_lead_bytes_with_word(s);
-		s++;
-	    }
-	    p = (const char *)s;
-	}
-	while (p < e) {
-	    if (is_utf8_lead_byte(*p)) len++;
-	    p++;
-	}
-	return (long)len;
+    if (cr == ENC_CODERANGE_UNKNOWN) {
+	long n = rb_enc_strlen_cr(p, e, enc, &cr);
+	if (cr) ENC_CODERANGE_SET(str, cr);
+	return n;
     }
-#endif
-    n = rb_enc_strlen_cr(p, e, enc, &cr);
-    if (cr) {
-        ENC_CODERANGE_SET(str, cr);
+    else {
+	return enc_strlen(p, e, enc, cr);
     }
-    return n;
 }
 
 long
 rb_str_strlen(VALUE str)
 {
-    return str_strlen(str, STR_ENC_GET(str));
+    return str_strlen(str, NULL);
 }
 
 /*
@@ -1281,10 +1287,7 @@ rb_str_strlen(VALUE str)
 VALUE
 rb_str_length(VALUE str)
 {
-    long len;
-
-    len = str_strlen(str, STR_ENC_GET(str));
-    return LONG2NUM(len);
+    return LONG2NUM(str_strlen(str, NULL));
 }
 
 /*
@@ -1736,11 +1739,11 @@ static char *
 str_utf8_nth(const char *p, const char *e, long *nthp)
 {
     long nth = *nthp;
-    if ((int)SIZEOF_VALUE * 2 < e - p && (int)SIZEOF_VALUE * 2 < nth) {
-	const VALUE *s, *t;
-	const VALUE lowbits = sizeof(VALUE) - 1;
-	s = (const VALUE*)(~lowbits & ((VALUE)p + lowbits));
-	t = (const VALUE*)(~lowbits & (VALUE)e);
+    if ((int)SIZEOF_VOIDP * 2 < e - p && (int)SIZEOF_VOIDP * 2 < nth) {
+	const uintptr_t *s, *t;
+	const uintptr_t lowbits = SIZEOF_VOIDP - 1;
+	s = (const uintptr_t*)(~lowbits & ((uintptr_t)p + lowbits));
+	t = (const uintptr_t*)(~lowbits & (uintptr_t)e);
 	while (p < (const char *)s) {
 	    if (is_utf8_lead_byte(*p)) nth--;
 	    p++;
@@ -1748,7 +1751,7 @@ str_utf8_nth(const char *p, const char *e, long *nthp)
 	do {
 	    nth -= count_utf8_lead_bytes_with_word(s);
 	    s++;
-	} while (s < t && (int)sizeof(VALUE) <= nth);
+	} while (s < t && (int)SIZEOF_VOIDP <= nth);
 	p = (char *)s;
     }
     while (p < e) {
@@ -1787,10 +1790,12 @@ rb_str_subseq(VALUE str, long beg, long len)
 {
     VALUE str2;
 
-    if (RSTRING_LEN(str) == beg + len &&
-        RSTRING_EMBED_LEN_MAX < len) {
-        str2 = rb_str_new_shared(rb_str_new_frozen(str));
-        rb_str_drop_bytes(str2, beg);
+    if (RSTRING_EMBED_LEN_MAX < len) {
+	long olen;
+	str2 = rb_str_new_shared(rb_str_new_frozen(str));
+	RSTRING(str2)->as.heap.ptr += beg;
+	olen = RSTRING(str2)->as.heap.len;
+	if (olen > len) RSTRING(str2)->as.heap.len = len;
     }
     else {
         str2 = rb_str_new_with_class(str, RSTRING_PTR(str)+beg, len);
@@ -1852,7 +1857,7 @@ rb_str_subpos(VALUE str, long beg, long *lenp)
 	return 0;
     }
     if (len == 0) {
-	if (beg > str_strlen(str, enc)) return 0;
+	if (beg > str_strlen(str, enc)) return 0; /* str's enc */
 	p = s + beg;
     }
 #ifdef NONASCII_MASK
@@ -1895,10 +1900,11 @@ rb_str_substr(VALUE str, long beg, long len)
     char *p = rb_str_subpos(str, beg, &len);
 
     if (!p) return Qnil;
-    if (len > RSTRING_EMBED_LEN_MAX && p + len == RSTRING_END(str)) {
+    if (len > RSTRING_EMBED_LEN_MAX) {
+	long ofs = p - RSTRING_PTR(str);
 	str2 = rb_str_new_frozen(str);
 	str2 = str_new_shared(rb_obj_class(str2), str2);
-	RSTRING(str2)->as.heap.ptr += RSTRING(str2)->as.heap.len - len;
+	RSTRING(str2)->as.heap.ptr += ofs;
 	RSTRING(str2)->as.heap.len = len;
     }
     else {
@@ -2589,8 +2595,8 @@ rb_str_index(VALUE str, VALUE sub, long offset)
     enc = rb_enc_check(str, sub);
     if (is_broken_string(sub)) return -1;
 
-    len = single_byte ? RSTRING_LEN(str) : str_strlen(str, enc);
-    slen = str_strlen(sub, enc);
+    len = single_byte ? RSTRING_LEN(str) : str_strlen(str, enc); /* rb_enc_check */
+    slen = str_strlen(sub, enc); /* rb_enc_check */
     if (offset < 0) {
 	offset += len;
 	if (offset < 0) return -1;
@@ -2654,7 +2660,7 @@ rb_str_index_m(int argc, VALUE *argv, VALUE str)
 	pos = 0;
     }
     if (pos < 0) {
-	pos += str_strlen(str, STR_ENC_GET(str));
+	pos += str_strlen(str, NULL);
 	if (pos < 0) {
 	    if (RB_TYPE_P(sub, T_REGEXP)) {
 		rb_backref_set(Qnil);
@@ -2666,7 +2672,7 @@ rb_str_index_m(int argc, VALUE *argv, VALUE str)
     if (SPECIAL_CONST_P(sub)) goto generic;
     switch (BUILTIN_TYPE(sub)) {
       case T_REGEXP:
-	if (pos > str_strlen(str, STR_ENC_GET(str)))
+	if (pos > str_strlen(str, NULL))
 	    return Qnil;
 	pos = str_offset(RSTRING_PTR(str), RSTRING_END(str), pos,
 			 rb_enc_check(str, sub), single_byte_optimizable(str));
@@ -2765,8 +2771,8 @@ rb_str_rindex(VALUE str, VALUE sub, long pos)
     enc = rb_enc_check(str, sub);
     if (is_broken_string(sub)) return -1;
     singlebyte = single_byte_optimizable(str);
-    len = singlebyte ? RSTRING_LEN(str) : str_strlen(str, enc);
-    slen = str_strlen(sub, enc);
+    len = singlebyte ? RSTRING_LEN(str) : str_strlen(str, enc); /* rb_enc_check */
+    slen = str_strlen(sub, enc); /* rb_enc_check */
 
     /* substring longer than string */
     if (len < slen) return -1;
@@ -2811,7 +2817,7 @@ rb_str_rindex_m(int argc, VALUE *argv, VALUE str)
     VALUE sub;
     VALUE vpos;
     rb_encoding *enc = STR_ENC_GET(str);
-    long pos, len = str_strlen(str, enc);
+    long pos, len = str_strlen(str, enc); /* str's enc */
 
     if (rb_scan_args(argc, argv, "11", &sub, &vpos) == 2) {
 	pos = NUM2LONG(vpos);
@@ -2835,7 +2841,7 @@ rb_str_rindex_m(int argc, VALUE *argv, VALUE str)
       case T_REGEXP:
 	/* enc = rb_get_check(str, sub); */
 	pos = str_offset(RSTRING_PTR(str), RSTRING_END(str), pos,
-			 STR_ENC_GET(str), single_byte_optimizable(str));
+			 enc, single_byte_optimizable(str));
 
 	if (!RREGEXP(sub)->ptr || RREGEXP_SRC_LEN(sub)) {
 	    pos = rb_reg_search(sub, str, pos, 1);
@@ -3426,7 +3432,7 @@ rb_str_aref(VALUE str, VALUE indx)
 	    long beg, len;
 	    VALUE tmp;
 
-	    len = str_strlen(str, STR_ENC_GET(str));
+	    len = str_strlen(str, NULL);
 	    switch (rb_range_beg_len(indx, &beg, &len, len, 0)) {
 	      case Qfalse:
 		break;
@@ -3601,7 +3607,7 @@ rb_str_splice(VALUE str, long beg, long len, VALUE val)
 
     StringValue(val);
     enc = rb_enc_check(str, val);
-    slen = str_strlen(str, enc);
+    slen = str_strlen(str, enc); /* rb_enc_check */
 
     if (slen < beg) {
       out_of_range:
@@ -3699,7 +3705,7 @@ rb_str_aset(VALUE str, VALUE indx, VALUE val)
 	    rb_raise(rb_eIndexError, "string not matched");
 	}
 	beg = rb_str_sublen(str, beg);
-	rb_str_splice(str, beg, str_strlen(indx, 0), val);
+	rb_str_splice(str, beg, str_strlen(indx, NULL), val);
 	return val;
 
       generic:
@@ -3707,7 +3713,7 @@ rb_str_aset(VALUE str, VALUE indx, VALUE val)
 	/* check if indx is Range */
 	{
 	    long beg, len;
-	    if (rb_range_beg_len(indx, &beg, &len, str_strlen(str, 0), 2)) {
+	    if (rb_range_beg_len(indx, &beg, &len, str_strlen(str, NULL), 2)) {
 		rb_str_splice(str, beg, len, val);
 		return val;
 	    }
@@ -4407,10 +4413,10 @@ str_byte_substr(VALUE str, long beg, long len)
     else
 	p = s + beg;
 
-    if (len > RSTRING_EMBED_LEN_MAX && beg + len == n) {
+    if (len > RSTRING_EMBED_LEN_MAX) {
 	str2 = rb_str_new_frozen(str);
 	str2 = str_new_shared(rb_obj_class(str2), str2);
-	RSTRING(str2)->as.heap.ptr += RSTRING(str2)->as.heap.len - len;
+	RSTRING(str2)->as.heap.ptr += beg;
 	RSTRING(str2)->as.heap.len = len;
     }
     else {
@@ -6664,7 +6670,7 @@ rb_str_enumerate_chars(VALUE str, int wantarray)
 	if (wantarray) {
 #if STRING_ENUMERATORS_WANTARRAY
 	    rb_warn("given block not used");
-	    ary = rb_ary_new_capa(str_strlen(str, enc));
+	    ary = rb_ary_new_capa(str_strlen(str, enc)); /* str's enc*/
 #else
 	    rb_warning("passing a block to String#chars is deprecated");
 	    wantarray = 0;
@@ -6673,7 +6679,7 @@ rb_str_enumerate_chars(VALUE str, int wantarray)
     }
     else {
 	if (wantarray)
-	    ary = rb_ary_new_capa(str_strlen(str, enc));
+	    ary = rb_ary_new_capa(str_strlen(str, enc)); /* str's enc*/
 	else
 	    RETURN_SIZED_ENUMERATOR(str, 0, 0, rb_str_each_char_size);
     }
@@ -6768,7 +6774,7 @@ rb_str_enumerate_codepoints(VALUE str, int wantarray)
 	if (wantarray) {
 #if STRING_ENUMERATORS_WANTARRAY
 	    rb_warn("given block not used");
-	    ary = rb_ary_new_capa(str_strlen(str, enc));
+	    ary = rb_ary_new_capa(str_strlen(str, enc)); /* str's enc*/
 #else
 	    rb_warning("passing a block to String#codepoints is deprecated");
 	    wantarray = 0;
@@ -6777,7 +6783,7 @@ rb_str_enumerate_codepoints(VALUE str, int wantarray)
     }
     else {
 	if (wantarray)
-	    ary = rb_ary_new_capa(str_strlen(str, enc));
+	    ary = rb_ary_new_capa(str_strlen(str, enc)); /* str's enc*/
 	else
 	    RETURN_SIZED_ENUMERATOR(str, 0, 0, rb_str_each_char_size);
     }
@@ -7530,13 +7536,13 @@ rb_str_justify(int argc, VALUE *argv, VALUE str, char jflag)
 	enc = rb_enc_check(str, pad);
 	f = RSTRING_PTR(pad);
 	flen = RSTRING_LEN(pad);
-	fclen = str_strlen(pad, enc);
+	fclen = str_strlen(pad, enc); /* rb_enc_check */
 	singlebyte = single_byte_optimizable(pad);
 	if (flen == 0 || fclen == 0) {
 	    rb_raise(rb_eArgError, "zero width padding");
 	}
     }
-    len = str_strlen(str, enc);
+    len = str_strlen(str, enc); /* rb_enc_check */
     if (width < 0 || len >= width) return rb_str_dup(str);
     n = width - len;
     llen = (jflag == 'l') ? 0 : ((jflag == 'r') ? n : n/2);
