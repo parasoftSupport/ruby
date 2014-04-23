@@ -4789,20 +4789,9 @@ rb_gc_writebarrier(VALUE a, VALUE b)
 	rb_objspace_t *objspace = &rb_objspace;
 
 	if (!rgengc_remembered(objspace, a)) {
-	    int type = BUILTIN_TYPE(a);
-	    /* TODO: 2 << 16 is just a magic number. */
-	    if ((type == T_ARRAY && RARRAY_LEN(a) >= 2 << 16) ||
-		(type == T_HASH  && RHASH_SIZE(a) >= 2 << 16)) {
-		if (!rgengc_remembered(objspace, b)) {
-		    rgengc_report(2, objspace, "rb_gc_wb: %p (%s) -> %p (%s)\n", (void *)a, obj_type_name(a), (void *)b, obj_type_name(b));
-		    rgengc_remember(objspace, b);
-		}
-	    }
-	    else {
-		rgengc_report(2, objspace, "rb_gc_wb: %p (%s) -> %p (%s)\n",
-			      (void *)a, obj_type_name(a), (void *)b, obj_type_name(b));
-		rgengc_remember(objspace, a);
-	    }
+	    rgengc_report(2, objspace, "rb_gc_wb: %p (%s) -> %p (%s)\n",
+			  (void *)a, obj_type_name(a), (void *)b, obj_type_name(b));
+	    rgengc_remember(objspace, a);
 	}
     }
 }
@@ -5028,17 +5017,27 @@ rb_global_variable(VALUE *var)
 
 #define GC_NOTIFY 0
 
+enum {
+    gc_stress_no_major,
+    gc_stress_no_immediate_sweep,
+    gc_stress_full_mark_after_malloc,
+    gc_stress_max
+};
+
+#define gc_stress_full_mark_after_malloc_p() \
+    (FIXNUM_P(ruby_gc_stress) && (FIX2LONG(ruby_gc_stress) & (1<<gc_stress_full_mark_after_malloc)))
+
 static int
 garbage_collect_body(rb_objspace_t *objspace, int full_mark, int immediate_sweep, int reason)
 {
     if (ruby_gc_stress && !ruby_disable_gc_stress) {
 	int flag = FIXNUM_P(ruby_gc_stress) ? FIX2INT(ruby_gc_stress) : 0;
 
-	if (flag & 0x01)
+	if (flag & (1<<gc_stress_no_major))
 	    reason &= ~GPR_FLAG_MAJOR_MASK;
 	else
 	    reason |= GPR_FLAG_MAJOR_BY_STRESS;
-	immediate_sweep = !(flag & 0x02);
+	immediate_sweep = !(flag & (1<<gc_stress_no_immediate_sweep));
     }
     else {
 	if (!GC_ENABLE_LAZY_SWEEP || objspace->flags.dont_lazy_sweep) {
@@ -5646,7 +5645,7 @@ gc_stress_get(VALUE self)
 
 /*
  *  call-seq:
- *    GC.stress = bool          -> bool
+ *    GC.stress = flag          -> flag
  *
  *  Updates the GC stress mode.
  *
@@ -5654,6 +5653,11 @@ gc_stress_get(VALUE self)
  *  all memory and object allocations.
  *
  *  Enabling stress mode will degrade performance, it is only for debugging.
+ *
+ *  flag can be true, false, or a fixnum bit-ORed following flags.
+ *    0x01:: no major GC
+ *    0x02:: no immediate sweep
+ *    0x04:: full mark after malloc/calloc/realloc
  */
 
 static VALUE
@@ -6093,19 +6097,20 @@ objspace_malloc_increase(rb_objspace_t *objspace, void *mem, size_t new_size, si
 #endif
     }
 
+    if (type != MEMOP_TYPE_FREE &&
+	ruby_gc_stress && !ruby_disable_gc_stress &&
+	ruby_native_thread_p()) {
+	garbage_collect_with_gvl(objspace, gc_stress_full_mark_after_malloc_p(), TRUE, GPR_FLAG_MALLOC);
+    }
+
     if (type == MEMOP_TYPE_MALLOC) {
-	if (ruby_gc_stress && !ruby_disable_gc_stress && ruby_native_thread_p()) {
-	    garbage_collect_with_gvl(objspace, FALSE, TRUE, GPR_FLAG_MALLOC);
-	}
-	else {
-	  retry:
-	    if (malloc_increase > malloc_limit && ruby_native_thread_p()) {
-		if (ruby_thread_has_gvl_p() && is_lazy_sweeping(heap_eden)) {
-		    gc_rest_sweep(objspace); /* rest_sweep can reduce malloc_increase */
-		    goto retry;
-		}
-		garbage_collect_with_gvl(objspace, FALSE, TRUE, GPR_FLAG_MALLOC);
+      retry:
+	if (malloc_increase > malloc_limit && ruby_native_thread_p()) {
+	    if (ruby_thread_has_gvl_p() && is_lazy_sweeping(heap_eden)) {
+		gc_rest_sweep(objspace); /* rest_sweep can reduce malloc_increase */
+		goto retry;
 	    }
+	    garbage_collect_with_gvl(objspace, FALSE, TRUE, GPR_FLAG_MALLOC);
 	}
     }
 

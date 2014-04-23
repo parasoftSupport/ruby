@@ -121,6 +121,12 @@ VALUE rb_cSymbol;
 
 #define STR_ENC_GET(str) get_encoding(str)
 
+#if 1
+#define SHARABLE_SUBSTRING_P(beg, len, end) ((beg) + (len) == (end))
+#else
+#define SHARABLE_SUBSTRING_P(beg, len, end) 1
+#endif
+
 rb_encoding *rb_enc_get_from_index(int index);
 
 static rb_encoding *
@@ -298,7 +304,7 @@ coderange_scan(const char *p, long len, rb_encoding *enc)
 {
     const char *e = p + len;
 
-    if (rb_enc_to_index(enc) == 0) {
+    if (rb_enc_to_index(enc) == rb_ascii8bit_encindex()) {
         /* enc is ASCII-8BIT.  ASCII-8BIT string never be broken. */
         p = search_nonascii(p, e);
         return p ? ENC_CODERANGE_VALID : ENC_CODERANGE_7BIT;
@@ -306,38 +312,22 @@ coderange_scan(const char *p, long len, rb_encoding *enc)
 
     if (rb_enc_asciicompat(enc)) {
         p = search_nonascii(p, e);
-        if (!p) {
-            return ENC_CODERANGE_7BIT;
+        if (!p) return ENC_CODERANGE_7BIT;
+        for (;;) {
+            int ret = rb_enc_precise_mbclen(p, e, enc);
+            if (!MBCLEN_CHARFOUND_P(ret)) return ENC_CODERANGE_BROKEN;
+            p += MBCLEN_CHARFOUND_LEN(ret);
+            if (p == e) break;
+            p = search_nonascii(p, e);
+            if (!p) break;
         }
+    }
+    else {
         while (p < e) {
             int ret = rb_enc_precise_mbclen(p, e, enc);
-            if (!MBCLEN_CHARFOUND_P(ret)) {
-                return ENC_CODERANGE_BROKEN;
-            }
+            if (!MBCLEN_CHARFOUND_P(ret)) return ENC_CODERANGE_BROKEN;
             p += MBCLEN_CHARFOUND_LEN(ret);
-            if (p < e) {
-                p = search_nonascii(p, e);
-                if (!p) {
-                    return ENC_CODERANGE_VALID;
-                }
-            }
         }
-        if (e < p) {
-            return ENC_CODERANGE_BROKEN;
-        }
-        return ENC_CODERANGE_VALID;
-    }
-
-    while (p < e) {
-        int ret = rb_enc_precise_mbclen(p, e, enc);
-
-        if (!MBCLEN_CHARFOUND_P(ret)) {
-            return ENC_CODERANGE_BROKEN;
-        }
-        p += MBCLEN_CHARFOUND_LEN(ret);
-    }
-    if (e < p) {
-        return ENC_CODERANGE_BROKEN;
     }
     return ENC_CODERANGE_VALID;
 }
@@ -350,10 +340,11 @@ rb_str_coderange_scan_restartable(const char *s, const char *e, rb_encoding *enc
     if (*cr == ENC_CODERANGE_BROKEN)
 	return e - s;
 
-    if (rb_enc_to_index(enc) == 0) {
+    if (rb_enc_to_index(enc) == rb_ascii8bit_encindex()) {
 	/* enc is ASCII-8BIT.  ASCII-8BIT string never be broken. */
+	if (*cr == ENC_CODERANGE_VALID) return e - s;
 	p = search_nonascii(p, e);
-	*cr = (!p && *cr != ENC_CODERANGE_VALID) ? ENC_CODERANGE_7BIT : ENC_CODERANGE_VALID;
+        *cr = p ? ENC_CODERANGE_VALID : ENC_CODERANGE_7BIT;
 	return e - s;
     }
     else if (rb_enc_asciicompat(enc)) {
@@ -362,23 +353,17 @@ rb_str_coderange_scan_restartable(const char *s, const char *e, rb_encoding *enc
 	    if (*cr != ENC_CODERANGE_VALID) *cr = ENC_CODERANGE_7BIT;
 	    return e - s;
 	}
-	while (p < e) {
+	for (;;) {
 	    int ret = rb_enc_precise_mbclen(p, e, enc);
 	    if (!MBCLEN_CHARFOUND_P(ret)) {
 		*cr = MBCLEN_INVALID_P(ret) ? ENC_CODERANGE_BROKEN: ENC_CODERANGE_UNKNOWN;
 		return p - s;
 	    }
 	    p += MBCLEN_CHARFOUND_LEN(ret);
-	    if (p < e) {
-		p = search_nonascii(p, e);
-		if (!p) {
-		    *cr = ENC_CODERANGE_VALID;
-		    return e - s;
-		}
-	    }
+	    if (p == e) break;
+	    p = search_nonascii(p, e);
+	    if (!p) break;
 	}
-	*cr = e < p ? ENC_CODERANGE_BROKEN: ENC_CODERANGE_VALID;
-	return p - s;
     }
     else {
 	while (p < e) {
@@ -389,9 +374,9 @@ rb_str_coderange_scan_restartable(const char *s, const char *e, rb_encoding *enc
 	    }
 	    p += MBCLEN_CHARFOUND_LEN(ret);
 	}
-	*cr = e < p ? ENC_CODERANGE_BROKEN: ENC_CODERANGE_VALID;
-	return p - s;
     }
+    *cr = ENC_CODERANGE_VALID;
+    return e - s;
 }
 
 static inline void
@@ -1790,7 +1775,7 @@ rb_str_subseq(VALUE str, long beg, long len)
 {
     VALUE str2;
 
-    if (RSTRING_EMBED_LEN_MAX < len) {
+    if (RSTRING_EMBED_LEN_MAX < len && SHARABLE_SUBSTRING_P(beg, len, RSTRING_LEN(str))) {
 	long olen;
 	str2 = rb_str_new_shared(rb_str_new_frozen(str));
 	RSTRING(str2)->as.heap.ptr += beg;
@@ -1900,7 +1885,7 @@ rb_str_substr(VALUE str, long beg, long len)
     char *p = rb_str_subpos(str, beg, &len);
 
     if (!p) return Qnil;
-    if (len > RSTRING_EMBED_LEN_MAX) {
+    if (len > RSTRING_EMBED_LEN_MAX && SHARABLE_SUBSTRING_P(p, len, RSTRING_END(str))) {
 	long ofs = p - RSTRING_PTR(str);
 	str2 = rb_str_new_frozen(str);
 	str2 = str_new_shared(rb_obj_class(str2), str2);
@@ -3594,8 +3579,8 @@ rb_str_splice_0(VALUE str, long beg, long len, VALUE val)
     OBJ_INFECT(str, val);
 }
 
-static void
-rb_str_splice(VALUE str, long beg, long len, VALUE val)
+void
+rb_str_update(VALUE str, long beg, long len, VALUE val)
 {
     long slen;
     char *p, *e;
@@ -3637,11 +3622,7 @@ rb_str_splice(VALUE str, long beg, long len, VALUE val)
 	ENC_CODERANGE_SET(str, cr);
 }
 
-void
-rb_str_update(VALUE str, long beg, long len, VALUE val)
-{
-    rb_str_splice(str, beg, len, val);
-}
+#define rb_str_splice(str, beg, len, val) rb_str_update(str, beg, len, val)
 
 static void
 rb_str_subpat_set(VALUE str, VALUE re, VALUE backref, VALUE val)
@@ -4413,7 +4394,7 @@ str_byte_substr(VALUE str, long beg, long len)
     else
 	p = s + beg;
 
-    if (len > RSTRING_EMBED_LEN_MAX) {
+    if (len > RSTRING_EMBED_LEN_MAX && SHARABLE_SUBSTRING_P(beg, len, n)) {
 	str2 = rb_str_new_frozen(str);
 	str2 = str_new_shared(rb_obj_class(str2), str2);
 	RSTRING(str2)->as.heap.ptr += beg;

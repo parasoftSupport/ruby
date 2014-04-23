@@ -1,3 +1,148 @@
+Wed Apr 23 20:36:22 2014  Tanaka Akira  <akr@fsij.org>
+
+	* ext/etc/extconf.rb: Build ext/etc unconditionally.
+
+Wed Apr 23 14:10:50 2014  NARUSE, Yui  <naruse@ruby-lang.org>
+
+	* file.c (statfs_fsid): remove statfs.f_fsid because it doesn't return
+	  meaningful value portably. http://togetter.com/li/658517
+
+Wed Apr 23 11:03:41 2014  Nobuyoshi Nakada  <nobu@ruby-lang.org>
+
+	* ext/stringio/stringio.c (strio_write): use rb_str_append to
+	  reuse coderange bits other than ASCII-8BIT, and keep
+	  taintedness.  [ruby-dev:48118] [Bug #9769]
+
+Wed Apr 23 00:43:00 2014  NAKAMURA Usaku  <usa@ruby-lang.org>
+
+	* win32/win32.c, include/ruby/win32.h (ustatfs): implementation of
+	  statfs(2) clone. [EXPERIMENTAL]
+
+	* file.c (rb_io_statfs): use above function.
+
+	* configure.in, win32/Makefile.sub (struct statfs): available.
+
+Tue Apr 22 23:56:24 2014  NAKAMURA Usaku  <usa@ruby-lang.org>
+
+	* file.c (rb_io_stafs): use statfs(2) if fstatfs(2) is unavailable.
+
+	* configure.in (fstatfs): check it.
+
+Tue Apr 22 22:15:51 2014  NAKAMURA Usaku  <usa@ruby-lang.org>
+
+	* file.c (rb_io_statfs): need to define even if the system doesn't have
+	  fstatfs(2).
+
+	* test/ruby/test_file.rb (TestFile#test_statfs): skip if IO#stafs is not
+	  implemented.
+
+Tue Apr 22 19:32:48 2014  NARUSE, Yui  <naruse@ruby-lang.org>
+
+	* file.c: newly added a class File::Statfs. (experimental)
+
+Tue Apr 22 08:22:33 2014  Koichi Sasada  <ko1@atdot.net>
+
+	* gc.c (objspace_malloc_increase): don't cause GC by malloc_increase
+	  when memop type is MEMOP_TYPE_REALLOC.
+
+	  GC at realloc is not well maintained.
+	  We need a time to make it safe.
+	  [ruby-dev:48117]
+
+Tue Apr 22 06:54:15 2014  Nobuyoshi Nakada  <nobu@ruby-lang.org>
+
+	* gc.c (objspace_malloc_increase): run full mark if 0x04 bit is
+	  set in ruby_gc_stress.  [ruby-core:62103] [Feature #9761]
+
+	* gc.c (objspace_malloc_increase): run GC after realloc not only
+	  malloc and calloc by GC.stress.  [ruby-core:62103] [Feature #9761]
+
+Mon Apr 21 19:12:20 2014  NARUSE, Yui  <naruse@ruby-lang.org>
+
+	* string.c (rb_str_coderange_scan_restartable): coderange is always
+	  ENC_CODERANGE_VALID if the string is ASCII-8BIT and already has a non
+	  ASCII character.
+
+Mon Apr 21 19:02:44 2014  NARUSE, Yui  <naruse@ruby-lang.org>
+
+	* string.c (coderange_scan): remove useless condition `p < e` after
+	  search_nonascii.
+
+	* string.c (rb_str_coderange_scan_restartable): ditto.
+
+Mon Apr 21 18:55:21 2014  NARUSE, Yui  <naruse@ruby-lang.org>
+
+	* ext/-test-/string/coderange.c: add Bug::String.new#coderange_scan
+	  to explicitly scan coderange.
+
+Mon Apr 21 18:19:35 2014  NARUSE, Yui  <naruse@ruby-lang.org>
+
+	* string.c (coderange_scan): remove unused logic.
+
+	* string.c (rb_str_coderange_scan_restartable): ditto.
+
+Mon Apr 21 14:11:48 2014  Nobuyoshi Nakada  <nobu@ruby-lang.org>
+
+	* ext/stringio/stringio.c (strio_putc): fix for non-ascii
+	  encoding, like as IO#putc.  [ruby-dev:48114] [Bug #9765]
+
+Sun Apr 20 12:57:15 2014  Masaya Tarui  <tarui@ruby-lang.org>
+
+	* st.c (st_foreach_check): change start point of search at check
+	  from top to current. [ruby-dev:48047] [Bug #9646]
+
+Sun Apr 20 08:41:33 2014  Andrew DeMaria  <ademariad@gmail.com>
+
+	* lib/mkmf.rb (link_command, libpathflag, create_makefile): prefer
+	  user specified `$LIBPATH` than `$DEFLIBPATH`.  [ruby-core:62100]
+	  [ruby-trunk - Bug #9760]
+
+Sun Apr 20 06:01:18 2014  Eric Wong  <e@80x24.org>
+
+	* gc.c (rb_gc_writebarrier): drop special case for big hash/array
+	  [Bug #9518]
+
+Sat Apr 19 15:38:29 2014  Nobuyoshi Nakada  <nobu@ruby-lang.org>
+
+	* parse.y (primary): flush cmdarg flags inside left-paren in a
+	  command argument, to allow parenthesed do-block as an argument
+	  without arguments parentheses.  [ruby-core:61950] [Bug #9726]
+
+Sat Apr 19 10:07:24 2014  Tanaka Akira  <akr@fsij.org>
+
+	* internal.h (struct RBignum): Use size_t for len.
+
+	* include/ruby/intern.h (rb_big_new): Use size_t instead of long to
+	  specify the size of bignum.
+	  (rb_big_resize): Ditto.
+
+	* bignum.c: Follow above changes.
+
+	* rational.c: Follow above changes.
+
+	* marshal.c: Follow above changes.
+
+Sat Apr 19 00:32:07 2014  Tanaka Akira  <akr@fsij.org>
+
+	* numeric.c (rb_num2long): Returns a long.
+	  (rb_num2ulong): Returns a unsigned long.
+
+	* bignum.c (rb_big2long): Returns a long.
+	  (rb_big2ulong): Returns a unsigned long.
+
+	* include/ruby/intern.h: Follow above changes.
+
+	* include/ruby/ruby.h: Follow above changes.
+	  (rb_num2long_inline): No need to cast.
+	  (rb_num2ulong_inline): Ditto.
+
+Sat Apr 19 00:17:20 2014  Nobuyoshi Nakada  <nobu@ruby-lang.org>
+
+	* string.c (SHARABLE_SUBSTRING_P): predicate if substring can be
+	  shared with the original string.  true if just at the end of the
+	  original string, for the time being.  all substring will be able to
+	  be shared in the future.
+
 Fri Apr 18 21:48:24 2014  Nobuyoshi Nakada  <nobu@ruby-lang.org>
 
 	* string.c (rb_str_new_frozen): consider the shared string at
