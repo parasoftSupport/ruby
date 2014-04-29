@@ -10466,6 +10466,7 @@ setup_fake_str(struct RString *fake_str, const char *name, long len)
 ID
 rb_pin_dynamic_symbol(VALUE sym)
 {
+    rb_gc_resurrect(sym);
     /* stick dynamic symbol */
     if (!st_insert(global_symbols.pinned_dsym, sym, (st_data_t)sym)) {
 	global_symbols.pinned_dsym_minor_marked = 0;
@@ -10712,7 +10713,7 @@ rb_str_dynamic_intern(VALUE str)
 
     if (st_lookup(global_symbols.sym_id, str, &id)) {
 	VALUE sym = ID2SYM(id);
-	if (!STATIC_SYM_P(sym)) {
+	if (ID_DYNAMIC_SYM_P(id)) {
 	    /* because of lazy sweep, dynamic symbol may be unmarked already and swept
 	     * at next time */
 	    rb_gc_resurrect(sym);
@@ -10758,6 +10759,8 @@ static int
 lookup_id_str(ID id, st_data_t *data)
 {
     if (ID_DYNAMIC_SYM_P(id)) {
+	rb_gc_resurrect((VALUE)id);
+	rb_gc_resurrect(RSYMBOL(id)->fstr);
 	*data = RSYMBOL(id)->fstr;
 	return TRUE;
     }
@@ -10767,6 +10770,15 @@ lookup_id_str(ID id, st_data_t *data)
     return FALSE;
 }
 
+static void
+must_be_dynamic_symbol(VALUE x)
+{
+    if (SPECIAL_CONST_P(x) || BUILTIN_TYPE(x) != T_SYMBOL) {
+	rb_raise(rb_eTypeError, "wrong argument type %s (expected Symbol)",
+		 rb_builtin_class_name(x));
+    }
+}
+
 ID
 rb_sym2id(VALUE x)
 {
@@ -10774,6 +10786,7 @@ rb_sym2id(VALUE x)
 	return RSHIFT((unsigned long)(x),RUBY_SPECIAL_SHIFT);
     }
     else {
+	must_be_dynamic_symbol(x);
 	return rb_pin_dynamic_symbol(x);
     }
 }
@@ -10785,6 +10798,7 @@ rb_sym2id_without_pindown(VALUE x)
 	return RSHIFT((unsigned long)(x),RUBY_SPECIAL_SHIFT);
     }
     else {
+	must_be_dynamic_symbol(x);
 	return (ID)x;
     }
 }
@@ -10894,9 +10908,13 @@ rb_make_internal_id(void)
 }
 
 static int
-symbols_i(VALUE sym, ID value, VALUE ary)
+symbols_i(VALUE key, ID value, VALUE ary)
 {
-    rb_ary_push(ary, ID2SYM(value));
+    VALUE sym = ID2SYM(value);
+    if (ID_DYNAMIC_SYM_P(value)) {
+	rb_gc_resurrect(sym);
+    }
+    rb_ary_push(ary, sym);
     return ST_CONTINUE;
 }
 

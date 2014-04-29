@@ -1,3 +1,151 @@
+Tue Apr 29 14:17:57 2014  Tanaka Akira  <akr@fsij.org>
+
+	* lib/tmpdir.rb: Rescue LoadError on etc.so for miniruby.
+	  Revert r45707, r45711, r45717.
+
+Tue Apr 29 12:50:02 2014  Tanaka Akira  <akr@fsij.org>
+
+	* lib/fileutils.rb: Don't need to define fu_get_gid and fu_get_gid in
+	  rescue LoadError on 'etc'.
+
+Tue Apr 29 10:21:38 2014  Kazuki Tsujimoto  <kazuki@callcc.net>
+
+	* parse.y (symbols_i): like r45492, call rb_gc_resurrect().
+
+Tue Apr 29 04:29:05 2014  Kazuhiro NISHIYAMA  <zn@mbf.nifty.com>
+
+	* file.c (HAVE_STRUCT_STATFS_T_F_FSTYPENAME): Add new macro for
+	  statfs_t.
+	* file.c (HAVE_STRUCT_STATFS_T_F_TYPE): ditto.
+
+	* file.c (rb_io_statfs): check FSTATFS macro only instead of
+	  HAVE_FSTATFS and HAVE_FSTATVFS.
+
+	* file.c (statfs_type): use new macro.
+	* file.c (statfs_fstypename): ditto.
+	* file.c (statfs_inspect): ditto.
+
+Tue Apr 29 00:20:26 2014  Rajarshi Das  <rajarshid@cybage.com>
+
+	* bootstraptest/test_literal.rb: fix typo of "dynamic".  [ci skip]
+
+	* regexp.rdoc: fix typo of "organized".  [ci skip]
+
+	* lib/session.rb: fix typo of "recognized".  [ci skip]
+
+Mon Apr 28 21:40:27 2014  NARUSE, Yui  <naruse@ruby-lang.org>
+
+	* configure.in (HAVE_STRUCT_STATFS_F_TYPE): check struct statfs.f_type
+	  to support OpenBSD.
+
+	* file.c (statfs_type): use above macro to switch.
+
+	* file.c (statfs_inspect): ditto.
+
+Mon Apr 28 18:06:08 2014  NARUSE, Yui  <naruse@ruby-lang.org>
+
+	* configure.in: check struct statvfs and struct statvfs.f_fstypename.
+
+	* configure.in: on NetBSD fstatfs is obsoleted.
+
+	* file.c: support NetBSD for File::Statfs.
+
+Mon Apr 28 17:42:42 2014  Narihiro Nakamura  <authornari@gmail.com>
+
+	* gc.c: This argument must be a pointer.
+
+Mon Apr 28 17:40:15 2014  Narihiro Nakamura  <authornari@gmail.com>
+
+	* gc.c: Fix typos. These are undefined variables.
+
+Sun Apr 27 19:39:42 2014  Tadayoshi Funaba  <tadf@dotrb.org>
+
+	* ext/date/date_strptime.c (date__strptime_internal): do not
+	  overwrite century.
+
+Sat Apr 26 11:50:08 2014  SHIBATA Hiroshi  <shibata.hiroshi@gmail.com>
+
+	* test/ruby/test_enum.rb (test_flat_map): Added test for flat_map.
+	  Contribute from @igaiga. [fix GH-598]
+
+Sat Apr 26 10:55:33 2014  Nobuyoshi Nakada  <nobu@ruby-lang.org>
+
+	* compile.c (compile_array_): make copy a first hash not to modify
+	  the argument itself.  keyword splat should be non-destructive.
+	  [ruby-core:62161] [Bug #9776]
+
+Sat Apr 26 08:05:36 2014  Tanaka Akira  <akr@fsij.org>
+
+	* test/ruby/test_process.rb (test_rlimit_nofile): Don't limit
+	  RLIMIT_NOFILE too small.
+	  This fix sporadic "[ASYNC BUG] thread_timer: select" on GNU/Linux.
+
+Fri Apr 25 22:54:34 2014  Naohisa Goto  <ngotogenome@gmail.com>
+
+	* lib/fileutils.rb (rmdir): rescue Errno::EEXIST in addition to
+	  ENOTEMPTY (and ENOENT), because SUSv3 describes that "If the
+	  directory is not an empty directory, rmdir() shall fail and set
+	  errno to [EEXIST] or [ENOTEMPTY]" and Solaris uses EEXIST.
+	  [Bug #9571] [ruby-dev:48017]
+
+Fri Apr 25 19:16:30 2014  Tanaka Akira  <akr@fsij.org>
+
+	* lib/webrick/utils.rb: Don't rescue LoadError for 'etc' extension.
+
+Fri Apr 25 14:55:59 2014  Nobuyoshi Nakada  <nobu@ruby-lang.org>
+
+	* configure.in (rb_cv_func___builtin_unreachable): try with an
+	  external variable not only by a warning, which might not be
+	  shown due to the optimization.  [ruby-core:61647] [Bug #9665]
+
+Fri Apr 25 13:11:49 2014  NARUSE, Yui  <naruse@ruby-lang.org>
+
+	* configure.in: NetBSD's ksh, used by configure, needs escapes.
+
+Fri Apr 25 12:51:08 2014  NARUSE, Yui  <naruse@ruby-lang.org>
+
+	* configure.in: correct pthread_setname_np's prototype on NetBSD.
+	  [Bug #9586]
+
+Thu Apr 24 23:17:25 2014  NAKAMURA Usaku  <usa@ruby-lang.org>
+
+	* lib/fileutils.rb (fu_get_uid, fu_get_gid): Etc.getpwnam/getgrnam may
+	  returns nil.
+
+	* lib/webrick/utils.rb (su): ditto.
+
+Thu Apr 24 22:55:22 2014  Tanaka Akira  <akr@fsij.org>
+
+	* bootstraptest/test_io.rb: Add etc.so to $" before require 'tmpdir'.
+
+Thu Apr 24 21:09:55 2014  Kazuhiro NISHIYAMA  <zn@mbf.nifty.com>
+
+	* man/ruby.1: fix broken link.
+
+Thu Apr 24 20:53:02 2014  Tanaka Akira  <akr@fsij.org>
+
+	* lib/tmpdir.rb: Don't need to rescue LoadError for etc.so.
+
+Thu Apr 24 17:39:53 2014  NARUSE, Yui  <naruse@ruby-lang.org>
+
+	* file.c (statfs_inspect): suppress warnings.
+	  assume those values won't be larger than LONG_LONG_MAX.
+
+Thu Apr 24 11:53:28 2014  Nobuyoshi Nakada  <nobu@ruby-lang.org>
+
+	* ext/openssl/ossl_asn1.c (ossl_asn1_initialize): SYMID on a value
+	  other than Symbol is an undefined behavior.  fix up r31699.
+	  [ruby-core:62142] [Bug #9771]
+
+Thu Apr 24 11:21:37 2014  Nobuyoshi Nakada  <nobu@ruby-lang.org>
+
+	* parse.y (rb_sym2id, rb_sym2id_without_pindown): return 0 for
+	  non-symbol values, for the time being.
+
+Thu Apr 24 05:50:13 2014  NARUSE, Yui  <naruse@ruby-lang.org>
+
+	* parse.y (dsym_node_gen): like r45492, call rb_gc_resurrect().
+
 Wed Apr 23 20:36:22 2014  Tanaka Akira  <akr@fsij.org>
 
 	* ext/etc/extconf.rb: Build ext/etc unconditionally.

@@ -1673,14 +1673,14 @@ class TestIO < Test::Unit::TestCase
       when 0x9123683E # BTRFS_SUPER_MAGIC
       when 0x7461636f # OCFS2_SUPER_MAGIC
       when 0xEF53 # EXT2_SUPER_MAGIC EXT3_SUPER_MAGIC EXT4_SUPER_MAGIC
-        return false if (`/bin/uname -r`.split('.') <=> %w[3 8]) < 0
+        return false if (`/bin/uname -r`.split('.').map(&:to_i) <=> [3,8]) < 0
         # ext3's timestamp resolution is seconds
         s = f.stat
         s.mtime.nsec != 0 || s.atime.nsec != 0 || s.ctime.nsec != 0
       when 0x58465342 # XFS_SUPER_MAGIC
-        return false if (`/bin/uname -r`.split('.') <=> %w[3 5]) < 0
+        return false if (`/bin/uname -r`.split('.').map(&:to_i) <=> [3,5]) < 0
       when 0x01021994 # TMPFS_MAGIC
-        return false if (`/bin/uname -r`.split('.') <=> %w[3 8]) < 0
+        return false if (`/bin/uname -r`.split('.').map(&:to_i) <=> [3,8]) < 0
       else
         return false
       end
@@ -1722,7 +1722,6 @@ class TestIO < Test::Unit::TestCase
         }
         open(t.path, 'r+') { |f|
           break unless can_seek_data(f)
-          pos = f.pos
           f.seek(100*1024, IO::SEEK_SET)
           f.print("zot\n")
           f.seek(50*1024, IO::SEEK_DATA)
@@ -1773,7 +1772,6 @@ class TestIO < Test::Unit::TestCase
         }
         open(t.path, 'r+') { |f|
           break unless can_seek_data(f)
-          pos = f.pos
           f.seek(100*1024, :SET)
           f.print("zot\n")
           f.seek(50*1024, :DATA)

@@ -389,7 +389,10 @@ class TestFile < Test::Unit::TestCase
     open(__FILE__) do |f|
       st = f.statfs
       assert_kind_of File::Statfs, st
-      assert_kind_of Integer, st.type
+      begin
+        assert_kind_of Integer, st.type
+      rescue NotImplementedError
+      end
       assert_kind_of Integer, st.bsize
       assert_kind_of Integer, st.blocks
       assert_kind_of Integer, st.bfree
@@ -400,6 +403,11 @@ class TestFile < Test::Unit::TestCase
         assert_kind_of String, st.fstypename
       rescue NotImplementedError
       end
+      s = st.inspect
+      assert_match(/\A\#<File::Statfs\b.*>\z/, s)
+      assert_match(/\bbsize=\d+\b/, s)
+      assert_match(/\bblocks=(?:\d+[,>\/])+\b/, s)
+      assert_match(/\bfiles=(?:\d+[,>\/])+\b/, s)
     end
   end
 end
