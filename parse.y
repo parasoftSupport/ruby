@@ -8815,19 +8815,9 @@ block_dup_check_gen(struct parser_params *parser, NODE *node1, NODE *node2)
     }
 }
 
-static const char id_type_names[][9] = {
-    "LOCAL",
-    "INSTANCE",
-    "",				/* INSTANCE2 */
-    "GLOBAL",
-    "ATTRSET",
-    "CONST",
-    "CLASS",
-    "JUNK",
-};
-
 static ID rb_pin_dynamic_symbol(VALUE);
 static ID attrsetname_to_attr(VALUE name);
+static int lookup_id_str(ID id, st_data_t *data);
 
 ID
 rb_id_attrset(ID id)
@@ -8837,7 +8827,8 @@ rb_id_attrset(ID id)
 	  case tAREF: case tASET:
 	    return tASET;	/* only exception */
 	}
-	rb_name_error(id, "cannot make operator ID :%s attrset", rb_id2name(id));
+	rb_name_error(id, "cannot make operator ID :%"PRIsVALUE" attrset",
+		      rb_id2str(id));
     }
     else {
 	int scope = id_type(id);
@@ -8848,9 +8839,17 @@ rb_id_attrset(ID id)
 	  case ID_ATTRSET:
 	    return id;
 	  default:
-	    rb_name_error(id, "cannot make %s ID %+"PRIsVALUE" attrset",
-			  id_type_names[scope], ID2SYM(id));
-
+	    {
+		st_data_t data;
+		if (lookup_id_str(id, &data)) {
+		    rb_name_error(id, "cannot make unknown type ID %d:%"PRIsVALUE" attrset",
+				  scope, (VALUE)data);
+		}
+		else {
+		    rb_name_error_str(Qnil, "cannot make unknown type anonymous ID %d:%"PRIxVALUE" attrset",
+				      scope, (VALUE)id);
+		}
+	    }
 	}
     }
     if (id&ID_STATIC_SYM) {
@@ -8863,12 +8862,7 @@ rb_id_attrset(ID id)
         /* make new dynamic symbol */
 	str = rb_str_dup(RSYMBOL((VALUE)id)->fstr);
 	rb_str_cat(str, "=", 1);
-	id = (ID)rb_str_dynamic_intern(str);
-	if (ID_DYNAMIC_SYM_P(id)) {
-	    /* attrset ID may have been registered as a static
-	     * symbol */
-	    rb_pin_dynamic_symbol((VALUE)id);
-	}
+	id = SYM2ID(rb_str_dynamic_intern(str));
     }
     return id;
 }
@@ -10458,9 +10452,13 @@ static ID intern_str(VALUE str);
 static void
 must_be_dynamic_symbol(VALUE x)
 {
+    st_data_t data;
+    if (STATIC_SYM_P(x) && lookup_id_str(RSHIFT((unsigned long)(x),RUBY_SPECIAL_SHIFT), &data)) {
+	rb_bug("wrong argument :%s (inappropriate Symbol)", RSTRING_PTR((VALUE)data));
+    }
     if (SPECIAL_CONST_P(x) || BUILTIN_TYPE(x) != T_SYMBOL) {
-	rb_raise(rb_eTypeError, "wrong argument type %s (expected Symbol)",
-		 rb_builtin_class_name(x));
+	rb_bug("wrong argument type %s (expected Symbol)",
+	       rb_builtin_class_name(x));
     }
 }
 
@@ -10611,7 +10609,6 @@ next_id(VALUE str)
 	if (last > 1 && name[last-1] == '=')
 	    goto junk;
 	id = rb_intern3(name, last, enc);
-	id |= ID_STATIC_SYM;
 	if (id > tLAST_OP_ID && !is_attrset_id(id)) {
 	    enc = rb_enc_get(rb_id2str(id));
 	    id = rb_id_attrset(id);

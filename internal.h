@@ -635,7 +635,9 @@ VALUE rb_math_hypot(VALUE, VALUE);
 VALUE rb_math_log(int argc, VALUE *argv);
 VALUE rb_math_sin(VALUE);
 VALUE rb_math_sinh(VALUE);
+#if 0
 VALUE rb_math_sqrt(VALUE);
+#endif
 
 /* newline.c */
 void Init_newline(void);
@@ -889,6 +891,7 @@ rb_serial_t rb_next_class_serial(void);
 VALUE rb_obj_is_thread(VALUE obj);
 void rb_vm_mark(void *ptr);
 void Init_BareVM(void);
+void Init_vm_objects(void);
 VALUE rb_vm_top_self(void);
 void rb_thread_recycle_stack_release(VALUE *);
 void rb_vm_change_state(void);

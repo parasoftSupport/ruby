@@ -88,6 +88,10 @@ class TestPathname < Test::Unit::TestCase
     defassert(:cleanpath_aggressive, '/',       '///a/../..')
   end
 
+  if DOSISH
+    defassert(:cleanpath_aggressive, 'c:/foo/bar', 'c:\\foo\\bar')
+  end
+
   def cleanpath_conservative(path)
     Pathname.new(path).cleanpath(true).to_s
   end
@@ -123,6 +127,10 @@ class TestPathname < Test::Unit::TestCase
   defassert(:cleanpath_conservative, 'a/..',   'a/../.')
   defassert(:cleanpath_conservative, '/a',     '/../.././../a')
   defassert(:cleanpath_conservative, 'a/b/../../../../c/../d', 'a/b/../../../../c/../d')
+
+  if DOSISH
+    defassert(:cleanpath_conservative, 'c:/foo/bar', 'c:\\foo\\bar')
+  end
 
   if DOSISH_UNC
     defassert(:cleanpath_conservative, '//',     '//')
@@ -212,6 +220,10 @@ class TestPathname < Test::Unit::TestCase
   defassert(:plus, '../../c', '..', '../c')
 
   defassert(:plus, 'a//b/d//e', 'a//b/c', '../d//e')
+
+  def test_slash
+    assert_kind_of(Pathname, Pathname("a") / Pathname("b"))
+  end
 
   def test_parent
     assert_equal(Pathname("."), Pathname("a").parent)

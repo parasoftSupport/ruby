@@ -113,6 +113,7 @@ class Pathname
         end
       end
     end
+    pre.tr!(File::ALT_SEPARATOR, File::SEPARATOR) if File::ALT_SEPARATOR
     if /#{SEPARATOR_PAT}/o =~ File.basename(pre)
       names.shift while names[0] == '..'
     end
@@ -161,6 +162,7 @@ class Pathname
       pre, base = r
       names.unshift base if base != '.'
     end
+    pre.tr!(File::ALT_SEPARATOR, File::SEPARATOR) if File::ALT_SEPARATOR
     if /#{SEPARATOR_PAT}/o =~ File.basename(pre)
       names.shift while names[0] == '..'
     end
@@ -324,12 +326,17 @@ class Pathname
   #   p2 = p1 + "bin/ruby"           # Pathname:/usr/bin/ruby
   #   p3 = p1 + "/etc/passwd"        # Pathname:/etc/passwd
   #
+  #   # / is aliased to +.
+  #   p4 = p1 / "bin/ruby"           # Pathname:/usr/bin/ruby
+  #   p5 = p1 / "/etc/passwd"        # Pathname:/etc/passwd
+  #
   # This method doesn't access the file system; it is pure string manipulation.
   #
   def +(other)
     other = Pathname.new(other) unless Pathname === other
     Pathname.new(plus(@path, other.to_s))
   end
+  alias / +
 
   def plus(path1, path2) # -> path # :nodoc:
     prefix2 = path2

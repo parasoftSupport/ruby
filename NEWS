@@ -27,6 +27,11 @@ with all sufficient information, see the ChangeLog file.
   * New methods
     * IO#statfs returns filesystem information as File::Statfs. (experimental)
 
+* Process
+  * Extended method:
+    * Process execution methods such as Process.spawn opens the file in write
+      mode for redirect from [:out, :err].
+
 * Symbol
   * New methods
     * Symbol.find(str) returns whether given string is defined as symbol or not.
@@ -48,6 +53,15 @@ with all sufficient information, see the ChangeLog file.
     * When flushing file IO, you cannot assume that the metadata of the file
       is updated immediately.  On some platforms (especially Windows), it is
       delayed until the filesystem load is decreased.
+
+* Math
+  * incompatible changes:
+    * Math.log now raises Math::DomainError instead of returning NaN if the
+      base is less than 0, and returns NaN instead of -infinity if both of
+      two arguments are 0.
+    * Math.atan2 now returns values like as expected by C99 if both two
+      arguments are infinity.
+
 * Proc
   * incompatible changes:
     * ArgumentError is no longer raised when lambda Proc is passed as a
@@ -55,13 +69,28 @@ with all sufficient information, see the ChangeLog file.
       arguments of the lambda, if just an array is yielded and its length
       matches.
 
+* Process
+  * Process execution methods such as Process.spawn opens the file in write
+    mode for redirect from [:out, :err].
+    Before Ruby 2.2, it was opened in read mode.
+
 === Stdlib updates (outstanding ones only)
 
 * Find, Pathname
   * Extended methods:
     * find method accepts "ignore_error" keyword argument.
 
+* Pathname
+  * Pathname#/ is aliased to Pathname#+.
+
 === Stdlib compatibility issues (excluding feature bug fixes)
+
+* time.rb
+  * Time.parse, Time.strptime, Time.rfc2822, Time.xmlschema may produce
+    fixed-offset Time objects.
+    It is happen when usual localtime doesn't preserve the offset from UTC.
+  * Time.httpdate produces always UTC Time object.
+  * Time.strptime raises ArgumentError when no date information.
 
 === Built-in global variables compatibility issues
 
