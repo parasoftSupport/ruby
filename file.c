@@ -71,32 +71,36 @@ int flock(int, int);
 #endif
 #ifdef HAVE_STRUCT_STATFS
 typedef struct statfs statfs_t;
-#define STATFS(f, s) statfs((f), (s))
-#ifdef HAVE_STRUCT_STATFS_F_FSTYPENAME
-#define HAVE_STRUCT_STATFS_T_F_FSTYPENAME 1
-#endif
-#ifdef HAVE_STRUCT_STATFS_F_TYPE
-#define HAVE_STRUCT_STATFS_T_F_TYPE 1
-#endif
+# define STATFS(f, s) statfs((f), (s))
+# ifdef HAVE_FSTATFS
+#  define FSTATFS(f, s) fstatfs((f), (s))
+# endif
+# ifdef HAVE_STRUCT_STATFS_F_FSTYPENAME
+#  define HAVE_STRUCT_STATFS_T_F_FSTYPENAME 1
+# endif
+# ifdef HAVE_STRUCT_STATFS_F_TYPE
+#  define HAVE_STRUCT_STATFS_T_F_TYPE 1
+# endif
 #elif defined(HAVE_STRUCT_STATVFS)
 typedef struct statvfs statfs_t;
-#define STATFS(f, s) statvfs((f), (s))
-#ifdef HAVE_STRUCT_STATVFS_F_FSTYPENAME
-#define HAVE_STRUCT_STATFS_T_F_FSTYPENAME 1
-#endif
-#ifdef HAVE_STRUCT_STATVFS_F_TYPE
-#define HAVE_STRUCT_STATFS_T_F_TYPE 1
-#endif
+# define STATFS(f, s) statvfs((f), (s))
+# ifdef HAVE_FSTATVFS
+#  define FSTATFS(f, s) fstatvfs((f), (s))
+# endif
+# if defined(HAVE_STRUCT_STATVFS_F_FSTYPENAME) /* NetBSD */
+#  define HAVE_STRUCT_STATFS_T_F_FSTYPENAME 1
+# elif defined(HAVE_STRUCT_STATVFS_F_BASETYPE) /* AIX, HP-UX, Solaris */
+#  define HAVE_STRUCT_STATFS_T_F_FSTYPENAME 1
+#  define f_fstypename f_basetype
+# endif
+# ifdef HAVE_STRUCT_STATVFS_F_TYPE
+#  define HAVE_STRUCT_STATFS_T_F_TYPE 1
+# endif
 #else
 # define WITHOUT_STATFS
 #endif
 #ifndef WITHOUT_STATFS
 static VALUE rb_statfs_new(const statfs_t *st);
-#if defined(HAVE_FSTATFS)
-#define FSTATFS(f, s) fstatfs((f), (s))
-#elif defined(HAVE_FSTATVFS)
-#define FSTATFS(f, s) fstatvfs((f), (s))
-#endif
 #endif
 
 #if defined(__native_client__) && defined(NACL_NEWLIB)
@@ -4600,7 +4604,6 @@ rb_f_test(int argc, VALUE *argv)
 	  case 'd':
 	    return rb_file_directory_p(0, argv[1]);
 
-	  case 'a':
 	  case 'e':
 	    return rb_file_exist_p(0, argv[1]);
 

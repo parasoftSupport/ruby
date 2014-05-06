@@ -1,3 +1,188 @@
+Tue May  6 23:29:05 2014  Nobuyoshi Nakada  <nobu@ruby-lang.org>
+
+	* parse.y (new_bv_gen): no duplicated names, if already added in
+	  shadowing_lvar().
+
+	* parse.y (local_tbl_gen): remove local variables duplicated with
+	  arguments.
+	  [ruby-core:60501] [Bug #9486]
+
+Tue May  6 18:48:50 2014  Tanaka Akira  <akr@fsij.org>
+
+	* lib/time.rb (Time.make_time): Adjust the time zone of "now".
+
+Tue May  6 18:33:12 2014  Tadayoshi Funaba  <tadf@dotrb.org>
+
+	* io.c (io_{read,write}_nonblock): use rb_get_kwargs instead of
+	  rb_hash_aref.
+
+Tue May  6 18:03:05 2014  Tanaka Akira  <akr@fsij.org>
+
+	* lib/time.rb (Time.make_time): Argument validation code moved from
+	  Time.parse and Time.strptime.
+
+Tue May  6 17:27:06 2014  Tanaka Akira  <akr@fsij.org>
+
+	* lib/time.rb (Time.parse): [DOC] Fix an example in the documentation
+	  to use EST.
+	  Reported by Marcus Stollsteimer.
+	  [ruby-core:60778] [Bug #9521] and [ruby-core:61718] [Bug #9682]
+
+Tue May  6 04:31:48 2014  Tadayoshi Funaba  <tadf@dotrb.org>
+
+	* file.c (rb_f_test): removed meaningless "case 'a'".
+
+Tue May  6 01:28:14 2014  Tanaka Akira  <akr@fsij.org>
+
+	* lib/open-uri.rb (OpenURI.open_uri): Call StringIO#close only if
+	  the StringIO object is not closed yet.
+	  Reported by Jordi Massaguer Pla.  [ruby-core:42538] [Bug #6010]
+
+Tue May  6 01:08:01 2014  Koichi Sasada  <ko1@atdot.net>
+
+	* benchmark/driver.rb: define File::NULL if not defined and /dev/null
+	  is available to run benchmark driver on ruby 1.9.2.
+
+Mon May  5 23:53:24 2014  Tanaka Akira  <akr@fsij.org>
+
+	* ext/socket/mkconstants.rb: Add IP_TRANSPARENT.
+	  IP_TRANSPARENT is provieded since glibc-2.12.
+	  Reported by Eliezer Croitoru.  [ruby-core:50372] [Bug #7476]
+
+Mon May  5 22:29:47 2014  Tanaka Akira  <akr@fsij.org>
+
+	* process.c (check_exec_redirect): Open the file in write mode for
+	  redirect from [:out, :err].
+	  Proposed and implemented by Yusuke Endoh.
+	  [ruby-dev:41430] [Feature #3348]
+
+Mon May  5 21:52:35 2014  Tanaka Akira  <akr@fsij.org>
+
+	* ext/pathname/lib/pathname.rb (cleanpath_aggressive): make all
+	  separators File::SEPARATOR from File::ALT_SEPARATOR.
+	  Reported by Daniel Rikowski.
+	  Fixed by Nobuyoshi Nakada.  [Bug #9618]
+
+	* ext/pathname/lib/pathname.rb (cleanpath_conservative): ditto.
+
+Mon May  5 21:48:04 2014  Tanaka Akira  <akr@fsij.org>
+
+	* ext/pathname/lib/pathname.rb (Pathname#/): Aliased to Pathname#+.
+	  Suggested by Alexey Muranov.  [ruby-core:61432] [Feature #9625]
+
+Mon May  5 17:26:09 2014  Tadayoshi Funaba  <tadf@dotrb.org>
+
+	* math.c (rb_math_sqrt): omitted exporting an unused function,
+	  anyway.
+	* internal.h: follows the above change.
+
+Mon May  5 11:44:03 2014  Tanaka Akira  <akr@fsij.org>
+
+	* lib/time.rb (Time.strptime): Raise ArgumentError if Date._strptime
+	  doesn't extract date information.
+	  Reported by tadayoshi funaba.  [ruby-core:62349]
+
+Mon May  5 01:12:27 2014  Tadayoshi Funaba  <tadf@dotrb.org>
+
+	* ext/date/date_core.c (rt_rewrite_frags): a new feature (not a
+	  bug fix) of strptime.  applies offset even if the given date is
+	  not local time (%s and %Q).  This is an exceptional feature and
+	  I do NOT recommend to use this at all.  Thank you git community.
+
+Sun May  4 20:51:32 2014  Tanaka Akira  <akr@fsij.org>
+
+	* lib/time.rb (Time.force_zone!): Use usual local time if it has
+	  expected offset from UTC.
+
+Sun May  4 17:58:12 2014  Tanaka Akira  <akr@fsij.org>
+
+	* lib/time.rb (Time.force_zone!): New private method.
+	  (Time.make_time): Use Time.force_zone!.
+	  (Time.strptime): Ditto.
+	  (Time.rfc2822): Ditto.
+	  (Time.xmlschema): Ditto.
+
+	* lib/rss/rss.rb (Time.w3cdtf): Use Time.force_zone!.
+
+Sun May  4 10:22:59 2014  Nobuyoshi Nakada  <nobu@ruby-lang.org>
+
+	* math.c (math_atan2): return values like as expected by C99 if
+	  both two arguments are infinity.  based on the patch by cremno
+	  phobia <cremno AT mail.ru> in [ruby-core:62310].  [Feature #9799]
+
+Sun May  4 03:46:42 2014  Tanaka Akira  <akr@fsij.org>
+
+	* lib/time.rb (Time.httpdate): Always return a UTC Time object.
+
+Sun May  4 03:26:39 2014  Tanaka Akira  <akr@fsij.org>
+
+	* lib/time.rb (Time.make_time): Refactored.
+
+Sun May  4 02:53:17 2014  Tanaka Akira  <akr@fsij.org>
+
+	* lib/time.rb (Time.rfc2822): Fix year completion.
+	  Produce fixed-offset time object if appropriate.
+	  (Time.xmlschema): Produce fixed-offset time object if appropriate.
+
+Sat May  3 23:52:20 2014  Tanaka Akira  <akr@fsij.org>
+
+	* lib/time.rb (make_time): Produce fixed-offset time object if
+	  appropriate.
+	  (Time.strptime): Use d[:zone] instead of d[:offset].
+
+	* lib/rss/rss.rb (Time.w3cdtf): Produce fixed-offset time object if
+	  appropriate.
+
+Sat May  3 20:21:38 2014  Tanaka Akira  <akr@fsij.org>
+
+	* lib/time.rb (Time.strptime): Use d[:offset] if d[:seconds] is not
+	  given.
+	  Reported by tadayoshi funaba.  [ruby-core:62322]
+
+Sat May  3 04:04:16 2014  Eric Wong  <e@80x24.org>
+
+	* complex.c (parse_comp): replace ALLOCA_N with ALLOCV_N/ALLOCV_END
+	  [Bug #9608]
+	* rational.c (read_digits): ditto
+
+Sat May  3 00:06:30 2014  Naohisa Goto  <ngotogenome@gmail.com>
+
+	* file.c (HAVE_STRUCT_STATVFS_F_BASETYPE): File::Statfs#fstypename
+	  is supported on AIX, HP-UX, and Solaris, by using the value of
+	  struct statvfs.f_basetype.
+
+	* configure.in (HAVE_STRUCT_STATVFS_F_BASETYPE): check struct
+	  statvfs.f_basetype which is available on AIX, HP-UX, and Solaris.
+
+Fri May  2 21:04:02 2014  Nobuyoshi Nakada  <nobu@ruby-lang.org>
+
+	* parse.y (next_id): no reason to set ID_STATIC_SYM here, as ID
+	  returned by rb_intern3 can be a dynamic symbol and the static
+	  symbol flag is set otherwise.  [Bug #9787]
+
+Fri May  2 11:32:51 2014  Nobuyoshi Nakada  <nobu@ruby-lang.org>
+
+	* test/ruby/test_io.rb (test_seek, test_seek_symwhence): defer
+	  File::Statfs#type call which may not be implemented, to mitigate
+	  errors on platforms where SEEK_DATA is available but f_type in
+	  struct statfs is not.  [ruby-dev:48154] [Bug #9789]
+
+Fri May  2 10:37:55 2014  Nobuyoshi Nakada  <nobu@ruby-lang.org>
+
+	* parse.y (rb_id_attrset): turn dynamically interned Symbol into
+	  an ID, since rb_str_dynamic_intern returns a Symbol but not an
+	  ID.  [ruby-core:62226] [Bug #9787]
+
+Thu May  1 22:19:34 2014  Kazuhiro NISHIYAMA  <zn@mbf.nifty.com>
+
+	* file.c: Change AND condition to nested condition.
+
+Thu May  1 00:36:26 2014  Naohisa Goto  <ngotogenome@gmail.com>
+
+	* file.c (FSTATFS): check availability of struct statfs and
+	  struct statvfs in addition to fstatfs(2) and fstatvfs(2).
+	  This fixes error in Solaris. [Bug #9788] [ruby-dev:48145]
+
 Wed Apr 30 19:46:23 2014  Narihiro Nakamura  <authornari@gmail.com>
 
 	* gc.c (gc_after_sweep): suppress unnecessary expanding heap.
@@ -15,7 +200,7 @@ Wed Apr 30 17:58:40 2014  Koichi Sasada  <ko1@atdot.net>
 
 	* test/ruby/test_settracefunc.rb: add a test for TracePoint/set_trace_func.
 
-	* vm_core.h: renmae rb_thread_t::passed_me to
+	* vm_core.h: rename rb_thread_t::passed_me to
 	  rb_thread_t::passed_bmethod_me to clarify the usage.
 
 	* vm_insnhelper.c (vm_call_bmethod_body): use renamed member.
@@ -23,7 +208,7 @@ Wed Apr 30 17:58:40 2014  Koichi Sasada  <ko1@atdot.net>
 Wed Apr 30 17:06:49 2014  Nobuyoshi Nakada  <nobu@ruby-lang.org>
 
 	* parse.y (rb_id_attrset): pin down dynamic symbol only. it is
-	  possibe that attrset ID can be registered as a static symbol
+	  possible that attrset ID can be registered as a static symbol
 	  after the corresponding attrget ID has been registered as a
 	  dynamic, and then the latter may be collected.
 	  [ruby-core:62226] [Bug #9787]

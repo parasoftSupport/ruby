@@ -508,9 +508,9 @@ static void local_push_gen(struct parser_params*,int);
 #define local_push(top) local_push_gen(parser,(top))
 static void local_pop_gen(struct parser_params*);
 #define local_pop() local_pop_gen(parser)
-static int local_var_gen(struct parser_params*, ID);
+static void local_var_gen(struct parser_params*, ID);
 #define local_var(id) local_var_gen(parser, (id))
-static int arg_var_gen(struct parser_params*, ID);
+static void arg_var_gen(struct parser_params*, ID);
 #define arg_var(id) arg_var_gen(parser, (id))
 static int  local_id_gen(struct parser_params*, ID);
 #define local_id(id) local_id_gen(parser, (id))
@@ -8761,10 +8761,10 @@ is_private_local_id(ID name)
 
 #define LVAR_USED ((ID)1 << (sizeof(ID) * CHAR_BIT - 1))
 
-static ID
-shadowing_lvar_gen(struct parser_params *parser, ID name)
+static int
+shadowing_lvar_0(struct parser_params *parser, ID name)
 {
-    if (is_private_local_id(name)) return name;
+    if (is_private_local_id(name)) return 1;
     if (dyna_in_block()) {
 	if (dvar_curr(name)) {
 	    yyerror("duplicated argument name");
@@ -8775,6 +8775,7 @@ shadowing_lvar_gen(struct parser_params *parser, ID name)
 	    if (lvtbl->used) {
 		vtable_add(lvtbl->used, (ID)ruby_sourceline | LVAR_USED);
 	    }
+	    return 0;
 	}
     }
     else {
@@ -8782,6 +8783,13 @@ shadowing_lvar_gen(struct parser_params *parser, ID name)
 	    yyerror("duplicated argument name");
 	}
     }
+    return 1;
+}
+
+static ID
+shadowing_lvar_gen(struct parser_params *parser, ID name)
+{
+    shadowing_lvar_0(parser, name);
     return name;
 }
 
@@ -8794,7 +8802,7 @@ new_bv_gen(struct parser_params *parser, ID name)
 		      rb_id2name(name));
 	return;
     }
-    shadowing_lvar(name);
+    if (!shadowing_lvar_0(parser, name)) return;
     dyna_var(name);
 }
 
@@ -8815,19 +8823,9 @@ block_dup_check_gen(struct parser_params *parser, NODE *node1, NODE *node2)
     }
 }
 
-static const char id_type_names[][9] = {
-    "LOCAL",
-    "INSTANCE",
-    "",				/* INSTANCE2 */
-    "GLOBAL",
-    "ATTRSET",
-    "CONST",
-    "CLASS",
-    "JUNK",
-};
-
 static ID rb_pin_dynamic_symbol(VALUE);
 static ID attrsetname_to_attr(VALUE name);
+static int lookup_id_str(ID id, st_data_t *data);
 
 ID
 rb_id_attrset(ID id)
@@ -8837,7 +8835,8 @@ rb_id_attrset(ID id)
 	  case tAREF: case tASET:
 	    return tASET;	/* only exception */
 	}
-	rb_name_error(id, "cannot make operator ID :%s attrset", rb_id2name(id));
+	rb_name_error(id, "cannot make operator ID :%"PRIsVALUE" attrset",
+		      rb_id2str(id));
     }
     else {
 	int scope = id_type(id);
@@ -8848,9 +8847,17 @@ rb_id_attrset(ID id)
 	  case ID_ATTRSET:
 	    return id;
 	  default:
-	    rb_name_error(id, "cannot make %s ID %+"PRIsVALUE" attrset",
-			  id_type_names[scope], ID2SYM(id));
-
+	    {
+		st_data_t data;
+		if (lookup_id_str(id, &data)) {
+		    rb_name_error(id, "cannot make unknown type ID %d:%"PRIsVALUE" attrset",
+				  scope, (VALUE)data);
+		}
+		else {
+		    rb_name_error_str(Qnil, "cannot make unknown type anonymous ID %d:%"PRIxVALUE" attrset",
+				      scope, (VALUE)id);
+		}
+	    }
 	}
     }
     if (id&ID_STATIC_SYM) {
@@ -8863,12 +8870,7 @@ rb_id_attrset(ID id)
         /* make new dynamic symbol */
 	str = rb_str_dup(RSYMBOL((VALUE)id)->fstr);
 	rb_str_cat(str, "=", 1);
-	id = (ID)rb_str_dynamic_intern(str);
-	if (ID_DYNAMIC_SYM_P(id)) {
-	    /* attrset ID may have been registered as a static
-	     * symbol */
-	    rb_pin_dynamic_symbol((VALUE)id);
-	}
+	id = SYM2ID(rb_str_dynamic_intern(str));
     }
     return id;
 }
@@ -9721,50 +9723,43 @@ local_pop_gen(struct parser_params *parser)
 
 #ifndef RIPPER
 static ID*
-vtable_tblcpy(ID *buf, const struct vtable *src)
-{
-    int i, cnt = vtable_size(src);
-
-    if (cnt > 0) {
-        buf[0] = cnt;
-        for (i = 0; i < cnt; i++) {
-            buf[i] = src->tbl[i];
-        }
-        return buf;
-    }
-    return 0;
-}
-
-static ID*
 local_tbl_gen(struct parser_params *parser)
 {
-    int cnt = vtable_size(lvtbl->args) + vtable_size(lvtbl->vars);
+    int cnt_args = vtable_size(lvtbl->args);
+    int cnt_vars = vtable_size(lvtbl->vars);
+    int cnt = cnt_args + cnt_vars;
+    int i, j;
     ID *buf;
 
     if (cnt <= 0) return 0;
     buf = ALLOC_N(ID, cnt + 1);
-    vtable_tblcpy(buf+1, lvtbl->args);
-    vtable_tblcpy(buf+vtable_size(lvtbl->args)+1, lvtbl->vars);
+    MEMCPY(buf+1, lvtbl->args->tbl, ID, cnt_args);
+    /* remove IDs duplicated to warn shadowing */
+    for (i = 0, j = cnt_args+1; i < cnt_vars; ++i) {
+	ID id = lvtbl->vars->tbl[i];
+	if (!vtable_included(lvtbl->args, id)) {
+	    buf[j++] = id;
+	}
+    }
+    if (--j < cnt) REALLOC_N(buf, ID, (cnt = j) + 1);
     buf[0] = cnt;
     return buf;
 }
 #endif
 
-static int
+static void
 arg_var_gen(struct parser_params *parser, ID id)
 {
     vtable_add(lvtbl->args, id);
-    return vtable_size(lvtbl->args) - 1;
 }
 
-static int
+static void
 local_var_gen(struct parser_params *parser, ID id)
 {
     vtable_add(lvtbl->vars, id);
     if (lvtbl->used) {
 	vtable_add(lvtbl->used, (ID)ruby_sourceline);
     }
-    return vtable_size(lvtbl->vars) - 1;
 }
 
 static int
@@ -10458,9 +10453,13 @@ static ID intern_str(VALUE str);
 static void
 must_be_dynamic_symbol(VALUE x)
 {
+    st_data_t data;
+    if (STATIC_SYM_P(x) && lookup_id_str(RSHIFT((unsigned long)(x),RUBY_SPECIAL_SHIFT), &data)) {
+	rb_bug("wrong argument :%s (inappropriate Symbol)", RSTRING_PTR((VALUE)data));
+    }
     if (SPECIAL_CONST_P(x) || BUILTIN_TYPE(x) != T_SYMBOL) {
-	rb_raise(rb_eTypeError, "wrong argument type %s (expected Symbol)",
-		 rb_builtin_class_name(x));
+	rb_bug("wrong argument type %s (expected Symbol)",
+	       rb_builtin_class_name(x));
     }
 }
 
@@ -10611,7 +10610,6 @@ next_id(VALUE str)
 	if (last > 1 && name[last-1] == '=')
 	    goto junk;
 	id = rb_intern3(name, last, enc);
-	id |= ID_STATIC_SYM;
 	if (id > tLAST_OP_ID && !is_attrset_id(id)) {
 	    enc = rb_enc_get(rb_id2str(id));
 	    id = rb_id_attrset(id);

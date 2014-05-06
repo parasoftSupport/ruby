@@ -1595,7 +1595,19 @@ check_exec_redirect(VALUE key, VALUE val, struct rb_execarg *eargp)
             key = check_exec_redirect_fd(key, 1);
         if (FIXNUM_P(key) && (FIX2INT(key) == 1 || FIX2INT(key) == 2))
             flags = INT2NUM(O_WRONLY|O_CREAT|O_TRUNC);
-        else
+        else if (TYPE(key) == T_ARRAY) {
+	    int i;
+	    for (i = 0; i < RARRAY_LEN(key); i++) {
+		VALUE v = RARRAY_PTR(key)[i];
+		VALUE fd = check_exec_redirect_fd(v, 1);
+		if (FIX2INT(fd) != 1 && FIX2INT(fd) != 2) break;
+	    }
+	    if (i == RARRAY_LEN(key))
+		flags = INT2NUM(O_WRONLY|O_CREAT|O_TRUNC);
+	    else
+		flags = INT2NUM(O_RDONLY);
+	}
+	else
             flags = INT2NUM(O_RDONLY);
         perm = INT2FIX(0644);
         param = hide_obj(rb_ary_new3(3, hide_obj(EXPORT_DUP(path)),
@@ -6845,8 +6857,8 @@ get_mach_timebase_info(void)
  *
  *  [CLOCK_REALTIME] SUSv2 to 4, Linux 2.5.63, FreeBSD 3.0, NetBSD 2.0, OpenBSD 2.1
  *  [CLOCK_MONOTONIC] SUSv3 to 4, Linux 2.5.63, FreeBSD 3.0, NetBSD 2.0, OpenBSD 3.4
- *  [CLOCK_PROCESS_CPUTIME_ID] SUSv3 to 4, Linux 2.5.63
- *  [CLOCK_THREAD_CPUTIME_ID] SUSv3 to 4, Linux 2.5.63, FreeBSD 7.1
+ *  [CLOCK_PROCESS_CPUTIME_ID] SUSv3 to 4, Linux 2.5.63, OpenBSD 5.4
+ *  [CLOCK_THREAD_CPUTIME_ID] SUSv3 to 4, Linux 2.5.63, FreeBSD 7.1, OpenBSD 5.4
  *  [CLOCK_VIRTUAL] FreeBSD 3.0, OpenBSD 2.1
  *  [CLOCK_PROF] FreeBSD 3.0, OpenBSD 2.1
  *  [CLOCK_REALTIME_FAST] FreeBSD 8.1
@@ -6859,7 +6871,7 @@ get_mach_timebase_info(void)
  *  [CLOCK_MONOTONIC_RAW] Linux 2.6.28
  *  [CLOCK_BOOTTIME] Linux 2.6.39
  *  [CLOCK_BOOTTIME_ALARM] Linux 3.0
- *  [CLOCK_UPTIME] FreeBSD 7.0
+ *  [CLOCK_UPTIME] FreeBSD 7.0, OpenBSD 5.5
  *  [CLOCK_UPTIME_FAST] FreeBSD 8.1
  *  [CLOCK_UPTIME_PRECISE] FreeBSD 8.1
  *  [CLOCK_SECOND] FreeBSD 8.1
