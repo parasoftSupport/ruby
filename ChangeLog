@@ -1,3 +1,83 @@
+Sat May 10 08:47:36 2014  Tanaka Akira  <akr@fsij.org>
+
+	* signal.c (trap): Return "SYSTEM_DEFAULT" if SIG_DFL is set.
+
+Fri May  9 14:27:05 2014  Nobuyoshi Nakada  <nobu@ruby-lang.org>
+
+	* configure.in (RUBY_SETJMP_TYPE): check for setjmp type after
+	  CCDLFLAGS is appended to CFLAGS, since __builtin_setjmp can be
+	  affected.  [ruby-core:62469] [Bug #9818]
+
+Fri May  9 03:59:06 2014  Ayumu AIZAWA  <ayumu.aizawa@gmail.com>
+
+	* lib/delegate.rb: Fix example of using delegator.
+	  patched from Andrey Koleshko. [Fixes GH-505]
+
+Fri May  9 03:42:43 2014  Ayumu AIZAWA  <ayumu.aizawa@gmail.com>
+
+	* lib/shell.rb: add documentation in lib/shell.rb
+	  patched from reprah. [Fixes GH-516]
+
+Fri May  9 03:28:04 2014  Ayumu AIZAWA  <ayumu.aizawa@gmail.com>
+
+	* lib/fileutils.rb: show fileutils require at top.
+	  patched from Richard Schneeman. [Fixes GH-604]
+
+Fri May  9 03:07:09 2014  Ayumu AIZAWA  <ayumu.aizawa@gmail.com>
+
+	* lib/prime.rb (Prime#prime?): negative numbers can't be primes
+	  by definition. reported by Ivan Kataitsev. [Bug #7395]
+	* test/test_prime.rb: add test.
+
+Thu May  8 14:34:29 2014  Nobuyoshi Nakada  <nobu@ruby-lang.org>
+
+	* class.c (rb_mod_init_copy): always clear instance variable,
+	  constant and method tables first, regardless the source tables.
+	  [ruby-dev:48182] [Bug #9813]
+
+Thu May  8 10:53:14 2014  NARUSE, Yui  <naruse@ruby-lang.org>
+
+	* configure.in: OpenBSD needs to include sys/param.h before include
+	  sys/mount.h. [ruby-dev:48167]
+
+Thu May  8 10:17:04 2014  Karsten Sperling  <karsten@sperling.co.nz>
+
+	* lib/webrick/httpserver.rb (WEBrick::HTTPServer#run): stop
+	  handling requests on shutdown, even if the socket is readable
+	  and IO.select() returns true.  [Fixes GH-607]
+
+	* lib/webrick/server.rb (WEBrick::GenericServer#start): IO.select()
+	  raises ENOTSOCK on shutdown on Windows.
+
+Wed May  7 21:45:00 2014  Tanaka Akira  <akr@fsij.org>
+
+	* ext/openssl/lib/openssl/ssl.rb (OpenSSL::SSL::SSLServer#accept):
+	  Consider Socket#accept as well as TCPServer#accept.
+	  Reported by Sam Stelfox.  [ruby-core:62064] [Bug #9750]
+
+Wed May  7 17:24:07 2014  Nobuyoshi Nakada  <nobu@ruby-lang.org>
+
+	* numeric.c (num_step_scan_args): check keyword arguments and fail
+	  if they conflict with positional arguments.
+	  [ruby-dev:48177] [Bug #9811]
+
+Wed May  7 12:06:14 2014  Koichi Sasada  <ko1@atdot.net>
+
+	* benchmark/driver.rb: remove debug output and output results into
+	  specified file.
+
+Wed May  7 11:55:40 2014  Koichi Sasada  <ko1@atdot.net>
+
+	* benchmark/driver.rb: add '--rawdata-output=[FILE] option to output
+	  raw results into FILE.
+
+Wed May  7 11:25:41 2014  Nobuyoshi Nakada  <nobu@ruby-lang.org>
+
+	* vm_eval.c (rb_f_local_variables): exclude variables hidden by
+	  shadowing.  [ruby-core:60501] [Bug #9486]
+
+	* vm.c (collect_local_variables_in_iseq): ditto.
+
 Tue May  6 23:29:05 2014  Nobuyoshi Nakada  <nobu@ruby-lang.org>
 
 	* parse.y (new_bv_gen): no duplicated names, if already added in

@@ -175,6 +175,13 @@ class TestSignal < Test::Unit::TestCase
     end;
   end if Process.respond_to?(:kill)
 
+  def test_trap_system_default
+    assert_separately([], <<-End)
+      trap(:QUIT, "SYSTEM_DEFAULT")
+      assert_equal("SYSTEM_DEFAULT", trap(:QUIT, "DEFAULT"))
+    End
+  end
+
   def test_signal_requiring
     t = Tempfile.new(%w"require_ensure_test .rb")
     t.puts "sleep"
@@ -256,9 +263,12 @@ EOS
     # that signal will be deliverd synchronously.
     # This ugly workaround was introduced to don't break
     # compatibility against silly example codes.
+    assert_separately([], <<-RUBY)
+    trap(:HUP, "DEFAULT")
     assert_raise(SignalException) {
       Process.kill('HUP', Process.pid)
     }
+    RUBY
     bug8137 = '[ruby-dev:47182] [Bug #8137]'
     assert_nothing_raised(bug8137) {
       Timeout.timeout(1) {
