@@ -212,19 +212,15 @@ rb_remove_event_hook_with_data(rb_event_hook_func_t func, VALUE data)
     return remove_event_hook(&GET_VM()->event_hooks, func, data);
 }
 
-static int
-clear_trace_func_i(st_data_t key, st_data_t val, st_data_t flag)
-{
-    rb_thread_t *th;
-    GetThreadPtr((VALUE)key, th);
-    rb_threadptr_remove_event_hook(th, 0, Qundef);
-    return ST_CONTINUE;
-}
-
 void
 rb_clear_trace_func(void)
 {
-    st_foreach(GET_VM()->living_threads, clear_trace_func_i, (st_data_t) 0);
+    rb_vm_t *vm = GET_VM();
+    rb_thread_t *th = 0;
+
+    list_for_each(&vm->living_threads, th, vmlt_node) {
+	rb_threadptr_remove_event_hook(th, 0, Qundef);
+    }
     rb_remove_event_hook(0);
 }
 

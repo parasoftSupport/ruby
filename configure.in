@@ -691,13 +691,22 @@ RUBY_WERROR_FLAG([
 	]
     )
     AC_MSG_CHECKING([whether LDFLAGS is valid])
+    {
+	mkdir tmp.$$.try_link &&
+	cd tmp.$$.try_link &&
+	cp ../confdefs.h . &&
+	echo '<?xml?><plist><dict><key>CFBundleIdentifier</key><string></string></dict></plist>' > Info.plist &&
+	:
+    } || AC_MSG_ERROR([faild to make temporary directory])
     AC_TRY_LINK([], [],
 	[AC_MSG_RESULT(yes)],
 	[
+	cd .. && rm -fr tmp.$$.try_link
 	AC_MSG_RESULT(no)
 	AC_MSG_ERROR([something wrong with LDFLAGS="$LDFLAGS"])
 	]
     )
+    cd .. && rm -fr tmp.$$.try_link
 ])
 
 AC_DEFUN(RUBY_TRY_CFLAGS, [
@@ -874,7 +883,7 @@ if test "$GCC" = yes; then
 	[*-darwin*], [
 	    # doesn't seem necessary on Mac OS X
 	],
-	[[i[4-6]86*]], [
+	[[i[4-6]86*|i386*mingw*]], [
 	    RUBY_TRY_CFLAGS(-msse2 -mfpmath=sse, [
 		RUBY_APPEND_OPTION(XCFLAGS, -msse2 -mfpmath=sse)
 	    ])
@@ -960,7 +969,8 @@ AS_CASE(["$target_os"],
 		    [macosx_10_5=yes], [macosx_10_5=no])
 		AC_MSG_RESULT($macosx_10_5)
 		if test $macosx_10_5 = yes; then
-		    ac_cv_header_ucontext_h=no
+		    ac_cv_func_getcontext=no
+		    ac_cv_func_setcontext=no
 		else
 		    AC_DEFINE(BROKEN_SETREUID, 1)
 		    AC_DEFINE(BROKEN_SETREGID, 1)
@@ -1059,8 +1069,6 @@ main()
                 ac_cv_func_clock_gettime=yes
                 ac_cv_func_clock_getres=yes
 		ac_cv_func_malloc_usable_size=no
-		ac_cv_type_struct_statfs=yes
-		ac_cv_member_struct_statfs_f_fstypename=yes
 		{ test "$target_cpu" = x64 && ac_cv_func___builtin_setjmp=no; }
 		AC_CHECK_TYPE([NET_LUID], [], [],
 			      [@%:@include <windows.h>
@@ -1084,7 +1092,6 @@ main()
 		ac_cv_func_close=no
 		],
 [netbsd*], [	LIBS="-lm $LIBS"
-		ac_cv_func_fstatfs=no
 		],
 [dragonfly*], [	LIBS="-lm $LIBS"
 		# isinf() and isnan() are macros on DragonFly.
@@ -1121,11 +1128,10 @@ AC_CHECK_HEADERS( \
   sys/syscall.h \
   fcntl.h \
   sys/fcntl.h \
+  sys/param.h \
   sys/select.h \
   sys/time.h \
   sys/times.h \
-  sys/param.h \
-  sys/vfs.h \
   syscall.h \
   pwd.h \
   grp.h \
@@ -1154,9 +1160,6 @@ AC_CHECK_HEADERS( \
   malloc/malloc.h \
   setjmpex.h
 )
-AC_CHECK_HEADERS(sys/mount.h, [], [], [@%:@ifdef HAVE_SYS_PARAM_H
-@%:@ include <sys/param.h>
-@%:@endif])
 
 AC_ARG_WITH([gmp],
   [AS_HELP_STRING([--without-gmp],
@@ -1185,6 +1188,7 @@ AC_C_CONST
 AC_C_CHAR_UNSIGNED
 AC_C_INLINE
 AC_C_VOLATILE
+AC_C_TYPEOF
 
 AS_CASE(":$ac_cv_c_const:$ac_cv_c_volatile:",
     [*:no:*], [AC_MSG_ERROR(ANSI C-conforming const and volatile are mandatory)])
@@ -1517,7 +1521,7 @@ m4_ifval([$3], dnl
 )dnl
 m4_pushdef([attrib_code],[m4_bpatsubst([$1],["],[\\"])])
 m4_ifval([$4], [rbcv_cond=["$4"]; test "$rbcv_cond" || unset rbcv_cond])
-AC_CACHE_CHECK(for [$2] function attribute, rbcv,
+AC_CACHE_CHECK(for m4_ifval([$2],[$2],[$1]) function attribute, rbcv,
 [rbcv=x
 RUBY_WERROR_FLAG([
 for mac in \
@@ -1688,6 +1692,7 @@ AC_CHECK_MEMBERS([struct stat.st_mtimensec])
 AC_CHECK_MEMBERS([struct stat.st_ctim])
 AC_CHECK_MEMBERS([struct stat.st_ctimespec])
 AC_CHECK_MEMBERS([struct stat.st_ctimensec])
+AC_CHECK_MEMBERS([struct stat.st_birthtimespec])
 
 AC_CHECK_TYPES([struct timeval], [], [], [@%:@ifdef HAVE_TIME_H
 @%:@include <time.h>
@@ -1727,33 +1732,6 @@ AC_CHECK_TYPES([struct timezone], [], [], [@%:@ifdef HAVE_TIME_H
 @%:@ifdef HAVE_SYS_TIME_H
 @%:@ include <sys/time.h>
 @%:@endif])
-
-AC_CHECK_TYPES([struct statfs], [], [], [@%:@ifdef HAVE_SYS_PARAM_H
-@%:@ include <sys/param.h>
-@%:@endif
-@%:@ifdef HAVE_SYS_MOUNT_H
-@%:@ include <sys/mount.h>
-@%:@endif
-@%:@ifdef HAVE_SYS_VFS_H
-@%:@ include <sys/vfs.h>
-@%:@endif])
-AS_IF([test "$ac_cv_type_struct_statfs" = yes], [
-AC_CHECK_MEMBERS([struct statfs.f_type, struct statfs.f_fstypename], [], [], [@%:@ifdef HAVE_SYS_PARAM_H
-@%:@ include <sys/param.h>
-@%:@endif
-@%:@ifdef HAVE_SYS_MOUNT_H
-@%:@ include <sys/mount.h>
-@%:@endif
-@%:@ifdef HAVE_SYS_VFS_H
-@%:@ include <sys/vfs.h>
-@%:@endif])
-])
-# AIX, HP-UX, NetBSD, Solaris
-AC_CHECK_TYPES([struct statvfs], [], [], [@%:@ include <sys/statvfs.h>])
-# NetBSD
-AC_CHECK_MEMBERS([struct statvfs.f_fstypename], [], [], [@%:@ include <sys/statvfs.h>])
-# AIX, HP-UX, Solaris
-AC_CHECK_MEMBERS([struct statvfs.f_basetype], [], [], [@%:@ include <sys/statvfs.h>])
 
 AC_CHECK_TYPES([clockid_t], [], [], [@%:@ifdef HAVE_TIME_H
 @%:@ include <time.h>
@@ -1914,10 +1892,28 @@ AS_CASE(["$target_os"],[freebsd*],[
 	 AC_DEFINE(BROKEN_CLOSE)
 	 AC_REPLACE_FUNCS(close)
 	 ])
-AC_REPLACE_FUNCS(dup2 memmove strerror\
-		 strchr strstr crypt flock\
-		 isnan finite isinf hypot acosh erf tgamma lgamma_r cbrt \
-                 strlcpy strlcat ffs setproctitle)
+
+AC_REPLACE_FUNCS(acosh)
+AC_REPLACE_FUNCS(cbrt)
+AC_REPLACE_FUNCS(crypt)
+AC_REPLACE_FUNCS(dup2)
+AC_REPLACE_FUNCS(erf)
+AC_REPLACE_FUNCS(ffs)
+AC_REPLACE_FUNCS(finite)
+AC_REPLACE_FUNCS(flock)
+AC_REPLACE_FUNCS(hypot)
+AC_REPLACE_FUNCS(isinf)
+AC_REPLACE_FUNCS(isnan)
+AC_REPLACE_FUNCS(lgamma_r)
+AC_REPLACE_FUNCS(memmove)
+AC_REPLACE_FUNCS(nextafter)
+AC_REPLACE_FUNCS(setproctitle)
+AC_REPLACE_FUNCS(strchr)
+AC_REPLACE_FUNCS(strerror)
+AC_REPLACE_FUNCS(strlcat)
+AC_REPLACE_FUNCS(strlcpy)
+AC_REPLACE_FUNCS(strstr)
+AC_REPLACE_FUNCS(tgamma)
 
 # for missing/setproctitle.c
 AS_CASE(["$target_os"],
@@ -1962,8 +1958,6 @@ AC_CHECK_FUNCS(fcntl)
 AC_CHECK_FUNCS(fdatasync)
 AC_CHECK_FUNCS(fmod)
 AC_CHECK_FUNCS(fork)
-AC_CHECK_FUNCS(fstatfs)
-AC_CHECK_FUNCS(fstatvfs)
 AC_CHECK_FUNCS(fsync)
 AC_CHECK_FUNCS(ftruncate)
 AC_CHECK_FUNCS(ftruncate64)		# used for Win32 platform
@@ -2121,6 +2115,35 @@ void qsort_r(void *base, size_t nmemb, size_t size,
     AC_DEFINE(HAVE_GNU_QSORT_R, 1)
   ])
 fi
+
+AC_CACHE_CHECK(whether atan2 handles Inf as C99, rb_cv_atan2_inf_c99, [
+    AS_IF([test $ac_cv_func_atan2f:$ac_cv_func_atan2l = yes:yes], [
+	AC_TRY_RUN([
+@%:@include <math.h>
+@%:@ifdef HAVE_UNISTD_H
+@%:@include <unistd.h>
+@%:@endif
+@%:@ifndef EXIT_SUCCESS
+@%:@define EXIT_SUCCESS 0
+@%:@endif
+@%:@ifndef EXIT_FAILURE
+@%:@define EXIT_FAILURE 1
+@%:@endif
+
+int
+main(int argc, char **argv)
+{
+    if (fabs(atan2(INFINITY, INFINITY) - M_PI_4) <= 0.01) return EXIT_SUCCESS;
+    return EXIT_FAILURE;
+}
+],
+	[rb_cv_atan2_inf_c99=yes],
+	[rb_cv_atan2_inf_c99=no],
+	[AS_CASE($target_os, [mingw*|mswin*], [rb_cv_atan2_inf_c99=no], [rb_cv_atan2_inf_c99=yes])]
+	)
+    ], [rb_cv_atan2_inf_c99=no])
+])
+AS_IF([test "x$rb_cv_atan2_inf_c99" = xyes], [AC_DEFINE(ATAN2_INF_C99)])
 
 # Some platform need -lrt for clock_gettime, but the other don't.
 if test x"$ac_cv_func_clock_gettime" != xyes; then
@@ -3494,7 +3517,7 @@ AC_ARG_ENABLE(install-rdoc,
       [install_rdoc=$enableval], [install_rdoc=yes])
 AC_ARG_ENABLE(install-capi,
       AS_HELP_STRING([--disable-install-capi], [do not install C API documents during install]),
-      [install_capi=$enableval], [install_capi=yes])
+      [install_capi=$enableval], [install_capi=no])
 
 if test "$install_doc" != no; then
     if test "$install_rdoc" != no; then

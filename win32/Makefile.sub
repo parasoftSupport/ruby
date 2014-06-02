@@ -651,6 +651,7 @@ $(CONFIG_H): $(MKFILES) $(srcdir)/win32/Makefile.sub $(win_srcdir)/Makefile.sub
 #define HAVE_ERFC 1
 #define HAVE_ROUND 1
 #define HAVE_TGAMMA 1
+#define HAVE_NEXTAFTER 1
 !endif
 #define HAVE_ALLOCA 1
 #define HAVE_DUP2 1
@@ -699,8 +700,6 @@ $(CONFIG_H): $(MKFILES) $(srcdir)/win32/Makefile.sub $(win_srcdir)/Makefile.sub
 #define SETPGRP_VOID 1
 #define RSHIFT(x,y) ((x)>>(int)y)
 #define HAVE_RB_FD_INIT 1
-#define HAVE_STRUCT_STATFS 1
-#define HAVE_STRUCT_STATFS_F_FSTYPENAME 1
 #define RUBY_SETJMP(env) _setjmp(env)
 #define RUBY_LONGJMP(env,val) longjmp(env,val)
 #define RUBY_JMP_BUF jmp_buf
@@ -1111,6 +1110,11 @@ lex.c: {$(srcdir)}lex.c.blt
 	copy $(?:/=\) $@
 
 enc/unicode/name2ctype.h: {$(srcdir)}enc/unicode/name2ctype.h.blt
+	@if not exist $(@D:/=\) md $(@D:/=\)
+	$(ECHO) copying $@
+	$(Q) copy $(?:/=\) $(@:/=\) > nul
+
+enc/jis/props.h: {$(srcdir)}enc/jis/props.h.blt
 	@if not exist $(@D:/=\) md $(@D:/=\)
 	$(ECHO) copying $@
 	$(Q) copy $(?:/=\) $(@:/=\) > nul

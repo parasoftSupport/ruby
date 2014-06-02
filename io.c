@@ -1996,10 +1996,10 @@ rb_io_fdatasync(VALUE io)
 static VALUE
 rb_io_fileno(VALUE io)
 {
-    rb_io_t *fptr;
+    rb_io_t *fptr = RFILE(io)->fptr;
     int fd;
 
-    GetOpenFile(io, fptr);
+    rb_io_check_closed(fptr);
     fd = fptr->fd;
     return INT2FIX(fd);
 }
@@ -2051,7 +2051,7 @@ rb_io_inspect(VALUE obj)
     VALUE result;
     static const char closed[] = " (closed)";
 
-    fptr = RFILE(rb_io_taint_check(obj))->fptr;
+    fptr = RFILE(obj)->fptr;
     if (!fptr) return rb_any_to_s(obj);
     result = rb_str_new_cstr("#<");
     rb_str_append(result, rb_class_name(CLASS_OF(obj)));
@@ -2370,8 +2370,8 @@ io_setstrbuf(VALUE *str, long len)
 	VALUE s = StringValue(*str);
 	long clen = RSTRING_LEN(s);
 	if (clen >= len) {
+	    rb_str_modify(s);
 	    if (clen != len) {
-		rb_str_modify(s);
 		rb_str_set_len(s, len);
 	    }
 	    return;
@@ -5870,6 +5870,13 @@ popen_exec(void *pp, char *errmsg, size_t errmsg_len)
 #endif
 
 static VALUE
+rb_execarg_fixup_v(VALUE execarg_obj)
+{
+    rb_execarg_fixup(execarg_obj);
+    return Qnil;
+}
+
+static VALUE
 pipe_open(VALUE execarg_obj, const char *modestr, int fmode, convconfig_t *convconfig)
 {
     struct rb_execarg *eargp = NIL_P(execarg_obj) ? NULL : rb_execarg_get(execarg_obj);
@@ -5884,6 +5891,7 @@ pipe_open(VALUE execarg_obj, const char *modestr, int fmode, convconfig_t *convc
     char errmsg[80] = { '\0' };
 #endif
 #if defined(HAVE_FORK) || defined(HAVE_SPAWNV)
+    int state;
     struct popen_arg arg;
     int e = 0;
 #endif
@@ -5964,7 +5972,15 @@ pipe_open(VALUE execarg_obj, const char *modestr, int fmode, convconfig_t *convc
         rb_sys_fail_str(prog);
     }
     if (!NIL_P(execarg_obj)) {
-        rb_execarg_fixup(execarg_obj);
+        rb_protect(rb_execarg_fixup_v, execarg_obj, &state);
+        if (state) {
+            if (0 <= arg.write_pair[0]) close(arg.write_pair[0]);
+            if (0 <= arg.write_pair[1]) close(arg.write_pair[1]);
+            if (0 <= arg.pair[0]) close(arg.pair[0]);
+            if (0 <= arg.pair[1]) close(arg.pair[1]);
+            rb_jump_tag(state);
+        }
+
 # if defined(HAVE_FORK)
 	pid = rb_fork_async_signal_safe(&status, popen_exec, &arg, arg.eargp->redirect_fds, errmsg, sizeof(errmsg));
 # else
@@ -7607,8 +7623,8 @@ rb_io_s_for_fd(int argc, VALUE *argv, VALUE klass)
 static VALUE
 rb_io_autoclose_p(VALUE io)
 {
-    rb_io_t *fptr;
-    GetOpenFile(io, fptr);
+    rb_io_t *fptr = RFILE(io)->fptr;
+    rb_io_check_closed(fptr);
     return (fptr->mode & FMODE_PREP) ? Qfalse : Qtrue;
 }
 
@@ -9384,6 +9400,21 @@ io_encoding_set(rb_io_t *fptr, VALUE v1, VALUE v2, VALUE opt)
 
 }
 
+struct io_encoding_set_args {
+    rb_io_t *fptr;
+    VALUE v1;
+    VALUE v2;
+    VALUE opt;
+};
+
+static VALUE
+io_encoding_set_v(VALUE v)
+{
+    struct io_encoding_set_args *arg = (struct io_encoding_set_args *)v;
+    io_encoding_set(arg->fptr, arg->v1, arg->v2, arg->opt);
+    return Qnil;
+}
+
 static VALUE
 pipe_pair_close(VALUE rw)
 {
@@ -9458,6 +9489,7 @@ rb_io_s_pipe(int argc, VALUE *argv, VALUE klass)
     VALUE r, w, args[3], v1, v2;
     VALUE opt;
     rb_io_t *fptr, *fptr2;
+    struct io_encoding_set_args ies_args;
     int fmode = 0;
     VALUE ret;
 
@@ -9475,7 +9507,18 @@ rb_io_s_pipe(int argc, VALUE *argv, VALUE klass)
 	rb_jump_tag(state);
     }
     GetOpenFile(r, fptr);
-    io_encoding_set(fptr, v1, v2, opt);
+
+    ies_args.fptr = fptr;
+    ies_args.v1 = v1;
+    ies_args.v2 = v2;
+    ies_args.opt = opt;
+    rb_protect(io_encoding_set_v, (VALUE)&ies_args, &state);
+    if (state) {
+	close(pipes[1]);
+        io_close(r);
+	rb_jump_tag(state);
+    }
+
     args[1] = INT2NUM(pipes[1]);
     args[2] = INT2FIX(O_WRONLY);
     w = rb_protect(io_new_instance, (VALUE)args, &state);
@@ -11264,7 +11307,7 @@ argf_block_call(ID mid, int argc, VALUE *argv, VALUE argf)
  *  For example, the following code prints out each line of each named file
  *  prefixed with its line number, displaying the filename once per file:
  *
- *     ARGF.lines do |line|
+ *     ARGF.each_line do |line|
  *       puts ARGF.filename if ARGF.lineno == 1
  *       puts "#{ARGF.lineno}: #{line}"
  *     end
@@ -11632,7 +11675,7 @@ opt_i_get(ID id, VALUE *var)
  *      $ ruby argf.rb file.txt
  *
  *      ARGF.inplace_mode = '.bak'
- *      ARGF.lines do |line|
+ *      ARGF.each_line do |line|
  *        print line.sub("foo","bar")
  *      end
  *

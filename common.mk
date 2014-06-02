@@ -600,6 +600,12 @@ $(PLATFORM_D):
 	@exit > $@
 
 ###
+CCAN_DIR = {$(VPATH)}ccan
+CCAN_LIST_INCLUDES = $(CCAN_DIR)/build_assert/build_assert.h \
+			$(CCAN_DIR)/check_type/check_type.h \
+			$(CCAN_DIR)/container_of/container_of.h \
+			$(CCAN_DIR)/list/list.h \
+			$(CCAN_DIR)/str/str.h
 
 RUBY_H_INCLUDES    = {$(VPATH)}ruby.h {$(VPATH)}config.h {$(VPATH)}defines.h \
 		     {$(VPATH)}intern.h {$(VPATH)}missing.h {$(VPATH)}st.h \
@@ -608,7 +614,8 @@ ENCODING_H_INCLUDES= {$(VPATH)}encoding.h {$(VPATH)}oniguruma.h
 PROBES_H_INCLUDES  = {$(VPATH)}probes.h
 VM_CORE_H_INCLUDES = {$(VPATH)}vm_core.h {$(VPATH)}thread_$(THREAD_MODEL).h \
 		     {$(VPATH)}node.h {$(VPATH)}method.h {$(VPATH)}ruby_atomic.h \
-	             {$(VPATH)}vm_debug.h {$(VPATH)}id.h {$(VPATH)}thread_native.h
+	             {$(VPATH)}vm_debug.h {$(VPATH)}id.h {$(VPATH)}thread_native.h \
+	             $(CCAN_LIST_INCLUDES)
 
 ###
 
@@ -892,7 +899,8 @@ srcs-enc: $(ENC_MK)
 
 all-incs: incs
 incs: $(INSNS) {$(VPATH)}node_name.inc {$(VPATH)}encdb.h {$(VPATH)}transdb.h {$(VPATH)}known_errors.inc \
-      $(srcdir)/revision.h $(REVISION_H) enc/unicode/name2ctype.h {$(VPATH)}id.h {$(VPATH)}probes.dmyh
+      $(srcdir)/revision.h $(REVISION_H) enc/unicode/name2ctype.h enc/jis/props.h \
+      {$(VPATH)}id.h {$(VPATH)}probes.dmyh
 
 insns: $(INSNS)
 

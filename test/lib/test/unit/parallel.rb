@@ -1,3 +1,4 @@
+$LOAD_PATH.unshift "#{File.dirname(__FILE__)}/../.."
 require 'test/unit'
 
 module Test
@@ -34,7 +35,7 @@ module Test
 
         th = Thread.new do
           begin
-            while buf = (self.verbose ? i.gets : i.read(5))
+            while buf = (self.verbose ? i.gets : i.readpartial(1024))
               _report "p", buf
             end
           rescue IOError
@@ -75,8 +76,8 @@ module Test
         return result
       ensure
         MiniTest::Unit.output = orig_stdout
-        $stdin = orig_stdin
-        $stdout = orig_stdout
+        $stdin = orig_stdin if orig_stdin
+        $stdout = orig_stdout if orig_stdout
         o.close if o && !o.closed?
         i.close if i && !i.closed?
       end
@@ -155,6 +156,11 @@ module Test
       end
 
       def puke(klass, meth, e) # :nodoc:
+        if e.is_a?(MiniTest::Skip)
+          new_e = MiniTest::Skip.new(e.message)
+          new_e.set_backtrace(e.backtrace)
+          e = new_e
+        end
         @partial_report << [klass.name, meth, e.is_a?(MiniTest::Assertion) ? e : ProxyError.new(e)]
         super
       end

@@ -95,6 +95,15 @@ extern int select_large_fdset(int, fd_set *, fd_set *, fd_set *, struct timeval 
 	      EXCEPTION_CONTINUE_SEARCH) { \
 	/* never reaches here */ \
     }
+#elif defined(__MINGW32__)
+LONG WINAPI rb_w32_stack_overflow_handler(struct _EXCEPTION_POINTERS *);
+#define SAVE_ROOT_JMPBUF_BEFORE_STMT \
+    do { \
+	PVOID _handler = AddVectoredExceptionHandler(1, rb_w32_stack_overflow_handler);
+
+#define SAVE_ROOT_JMPBUF_AFTER_STMT \
+	RemoveVectoredExceptionHandler(_handler); \
+    } while (0);
 #else
 #define SAVE_ROOT_JMPBUF_BEFORE_STMT
 #define SAVE_ROOT_JMPBUF_AFTER_STMT
@@ -128,7 +137,7 @@ extern int select_large_fdset(int, fd_set *, fd_set *, fd_set *, struct timeval 
 #define PUSH_TAG() TH_PUSH_TAG(GET_THREAD())
 #define POP_TAG()      TH_POP_TAG()
 
-#if defined __GNUC__ && __GNUC__ == 4 && (__GNUC_MINOR__ == 7 || __GNUC_MINOR__ == 8)
+#if defined __GNUC__ && __GNUC__ == 4 && (__GNUC_MINOR__ >= 6 && __GNUC_MINOR__ <= 8)
 # define VAR_FROM_MEMORY(var) __extension__(*(__typeof__(var) volatile *)&(var))
 # define VAR_INITIALIZED(var) ((var) = VAR_FROM_MEMORY(var))
 #else

@@ -33,6 +33,7 @@ module EnvUtil
   def invoke_ruby(args, stdin_data = "", capture_stdout = false, capture_stderr = false,
                   encoding: nil, timeout: 10, reprieve: 1,
                   stdout_filter: nil, stderr_filter: nil,
+                  rubybin: EnvUtil.rubybin,
                   **opt)
     in_c, in_p = IO.pipe
     out_p, out_c = IO.pipe if capture_stdout
@@ -51,7 +52,7 @@ module EnvUtil
       child_env.update(args.shift)
     end
     args = [args] if args.kind_of?(String)
-    pid = spawn(child_env, EnvUtil.rubybin, *args, **opt)
+    pid = spawn(child_env, rubybin, *args, **opt)
     in_c.close
     out_c.close if capture_stdout
     err_c.close if capture_stderr && capture_stderr != :merge_to_stdout
@@ -120,6 +121,14 @@ module EnvUtil
     stderr, $stderr, $VERBOSE = $stderr, stderr, verbose
   end
   module_function :verbose_warning
+
+  def default_warning
+    verbose, $VERBOSE = $VERBOSE, false
+    yield
+  ensure
+    $VERBOSE = verbose
+  end
+  module_function :default_warning
 
   def suppress_warning
     verbose, $VERBOSE = $VERBOSE, nil
@@ -272,9 +281,10 @@ module Test
         pid = status.pid
         now = Time.now
         faildesc = proc do
-          signo = status.termsig
-          signame = Signal.signame(signo)
-          sigdesc = "signal #{signo}"
+          if signo = status.termsig
+            signame = Signal.signame(signo)
+            sigdesc = "signal #{signo}"
+          end
           log = EnvUtil.diagnostic_reports(signame, EnvUtil.rubybin, pid, now)
           if signame
             sigdesc = "SIG#{signame} (#{sigdesc})"
@@ -359,7 +369,7 @@ eom
         args.insert((Hash === args.first ? 1 : 0), "--disable=gems", *$:.map {|l| "-I#{l}"})
         stdout, stderr, status = EnvUtil.invoke_ruby(args, src, true, true, **opt)
         abort = status.coredump? || (status.signaled? && ABORT_SIGNALS.include?(status.termsig))
-        assert(!abort, FailDesc[status, stderr])
+        assert(!abort, FailDesc[status, nil, stderr])
         self._assertions += stdout[/^assertions=(\d+)/, 1].to_i
         begin
           res = Marshal.load(stdout.unpack("m")[0])
@@ -371,6 +381,9 @@ eom
             bt.each do |l|
               l.sub!(/\A-:(\d+)/){"#{file}:#{line + $1.to_i}"}
             end
+            bt.concat(caller)
+          else
+            res.set_backtrace(caller)
           end
           raise res
         end

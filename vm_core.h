@@ -23,8 +23,14 @@
 #include "id.h"
 #include "method.h"
 #include "ruby_atomic.h"
+#include "ccan/list/list.h"
 
-#include "thread_native.h"
+#include "ruby/thread_native.h"
+#if   defined(_WIN32)
+#include "thread_win32.h"
+#elif defined(HAVE_PTHREAD_H)
+#include "thread_pthread.h"
+#endif
 
 #ifndef ENABLE_VM_OBJSPACE
 #ifdef _WIN32
@@ -333,7 +339,8 @@ typedef struct rb_vm_struct {
     struct rb_thread_struct *main_thread;
     struct rb_thread_struct *running_thread;
 
-    st_table *living_threads;
+    struct list_head living_threads;
+    size_t living_thread_num;
     VALUE thgroup_default;
 
     int running;
@@ -501,6 +508,7 @@ typedef struct rb_ensure_list {
 } rb_ensure_list_t;
 
 typedef struct rb_thread_struct {
+    struct list_node vmlt_node;
     VALUE self;
     rb_vm_t *vm;
 
@@ -828,7 +836,8 @@ extern void rb_vmdebug_debug_print_post(rb_thread_t *th, rb_control_frame_t *cfp
 
 #define SDR() rb_vmdebug_stack_dump_raw(GET_THREAD(), GET_THREAD()->cfp)
 #define SDR2(cfp) rb_vmdebug_stack_dump_raw(GET_THREAD(), (cfp))
-void rb_vm_bugreport(void);
+void rb_vm_bugreport(const void *);
+NORETURN(void rb_bug_context(const void *, const char *fmt, ...));
 
 /* functions about thread/vm execution */
 RUBY_SYMBOL_EXPORT_BEGIN
@@ -855,6 +864,27 @@ void rb_thread_start_timer_thread(void);
 void rb_thread_stop_timer_thread(int);
 void rb_thread_reset_timer_thread(void);
 void rb_thread_wakeup_timer_thread(void);
+
+static inline void
+rb_vm_living_threads_init(rb_vm_t *vm)
+{
+    list_head_init(&vm->living_threads);
+    vm->living_thread_num = 0;
+}
+
+static inline void
+rb_vm_living_threads_insert(rb_vm_t *vm, rb_thread_t *th)
+{
+    list_add(&vm->living_threads, &th->vmlt_node);
+    vm->living_thread_num++;
+}
+
+static inline void
+rb_vm_living_threads_remove(rb_vm_t *vm, rb_thread_t *th)
+{
+    list_del(&th->vmlt_node);
+    vm->living_thread_num--;
+}
 
 int ruby_thread_has_gvl_p(void);
 typedef int rb_backtrace_iter_func(void *, VALUE, int, VALUE);

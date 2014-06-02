@@ -1,11 +1,22 @@
 require 'mkmf'
 
+headers = []
+%w[sys/utsname.h].each {|h|
+  if have_header(h, headers)
+    headers << h
+  end
+}
 have_library("sun", "getpwnam")	# NIS (== YP) interface for IRIX 4
+have_func("uname((struct utsname *)NULL)", headers)
 have_func("getlogin")
 have_func("getpwent")
 have_func("getgrent")
 sysconfdir = RbConfig.expand(RbConfig::CONFIG["sysconfdir"].dup, "prefix"=>"", "DESTDIR"=>"")
 $defs.push("-DSYSCONFDIR=#{Shellwords.escape(sysconfdir.dump)}")
+
+have_func("sysconf")
+have_func("confstr")
+have_func("fpathconf")
 
 have_struct_member('struct passwd', 'pw_gecos', 'pwd.h')
 have_struct_member('struct passwd', 'pw_change', 'pwd.h')

@@ -838,7 +838,7 @@ enumerator_peek_values_m(VALUE obj)
  *   p e.peek   #=> 2
  *   p e.next   #=> 2
  *   p e.next   #=> 3
- *   p e.next   #raises StopIteration
+ *   p e.peek   #raises StopIteration
  *
  */
 
@@ -1140,7 +1140,8 @@ yielder_yield(VALUE obj, VALUE args)
 }
 
 /* :nodoc: */
-static VALUE yielder_yield_push(VALUE obj, VALUE args)
+static VALUE
+yielder_yield_push(VALUE obj, VALUE args)
 {
     yielder_yield(obj, args);
     return obj;
@@ -2036,6 +2037,7 @@ InitVM_Enumerator(void)
     rb_define_method(rb_cLazy, "lazy", lazy_lazy, 0);
     rb_define_method(rb_cLazy, "chunk", lazy_super, -1);
     rb_define_method(rb_cLazy, "slice_before", lazy_super, -1);
+    rb_define_method(rb_cLazy, "slice_after", lazy_super, -1);
 
     rb_define_alias(rb_cLazy, "force", "to_a");
 

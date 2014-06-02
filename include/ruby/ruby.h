@@ -943,15 +943,6 @@ struct RFile {
     struct rb_io_t *fptr;
 };
 
-struct RRational {
-    struct RBasic basic;
-    const VALUE num;
-    const VALUE den;
-};
-
-#define RRATIONAL_SET_NUM(rat, n) RB_OBJ_WRITE((rat), &((struct RRational *)(rat))->num,(n))
-#define RRATIONAL_SET_DEN(rat, d) RB_OBJ_WRITE((rat), &((struct RRational *)(rat))->den,(d))
-
 struct RComplex {
     struct RBasic basic;
     const VALUE real;
@@ -960,12 +951,6 @@ struct RComplex {
 
 #define RCOMPLEX_SET_REAL(cmp, r) RB_OBJ_WRITE((cmp), &((struct RComplex *)(cmp))->real,(r))
 #define RCOMPLEX_SET_IMAG(cmp, i) RB_OBJ_WRITE((cmp), &((struct RComplex *)(cmp))->imag,(i))
-
-struct RSymbol {
-    struct RBasic basic;
-    VALUE fstr;
-    ID type;
-};
 
 struct RData {
     struct RBasic basic;
@@ -1101,9 +1086,7 @@ struct RStruct {
 #define RTYPEDDATA(obj)   (R_CAST(RTypedData)(obj))
 #define RSTRUCT(obj) (R_CAST(RStruct)(obj))
 #define RFILE(obj)   (R_CAST(RFile)(obj))
-#define RRATIONAL(obj) (R_CAST(RRational)(obj))
 #define RCOMPLEX(obj) (R_CAST(RComplex)(obj))
-#define RSYMBOL(obj) (R_CAST(RSymbol)(obj))
 
 #define FL_SINGLETON FL_USER0
 #define FL_WB_PROTECTED (((VALUE)1)<<5)

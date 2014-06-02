@@ -1260,7 +1260,12 @@ class CSV
       file_opts = {encoding: Encoding.default_external}.merge(file_opts)
       retry
     end
-    csv = new(f, options)
+    begin
+      csv = new(f, options)
+    rescue Exception
+      f.close
+      raise
+    end
 
     # handle blocks like Ruby's open(), not like the CSV library
     if block_given?
@@ -1484,6 +1489,10 @@ class CSV
   # so be sure to set what you want here.
   #
   def initialize(data, options = Hash.new)
+    if data.nil?
+      raise ArgumentError.new("Cannot parse nil as CSV")
+    end
+
     # build the options for this read/write
     options = DEFAULT_OPTIONS.merge(options)
 

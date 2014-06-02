@@ -85,7 +85,6 @@ static rb_serial_t ruby_vm_class_serial = 1;
 
 #include <assert.h>
 
-#define BUFSIZE 0x100
 #define PROCDEBUG 0
 
 rb_serial_t
@@ -1686,14 +1685,6 @@ rb_vm_call_cfunc(VALUE recv, VALUE (*func)(VALUE), VALUE arg,
 
 /* vm */
 
-static int
-vm_mark_each_thread_func(st_data_t key, st_data_t value, st_data_t dummy)
-{
-    VALUE thval = (VALUE)key;
-    rb_gc_mark(thval);
-    return ST_CONTINUE;
-}
-
 void rb_vm_trace_mark_event_hooks(rb_hook_list_t *hooks);
 
 void
@@ -1705,8 +1696,10 @@ rb_vm_mark(void *ptr)
     RUBY_GC_INFO("-------------------------------------------------\n");
     if (ptr) {
 	rb_vm_t *vm = ptr;
-	if (vm->living_threads) {
-	    st_foreach(vm->living_threads, vm_mark_each_thread_func, 0);
+	rb_thread_t *th = 0;
+
+	list_for_each(&vm->living_threads, th, vmlt_node) {
+	    rb_gc_mark(th->self);
 	}
 	RUBY_MARK_UNLESS_NULL(vm->thgroup_default);
 	RUBY_MARK_UNLESS_NULL(vm->mark_object_ary);
@@ -1756,21 +1749,18 @@ int
 ruby_vm_destruct(rb_vm_t *vm)
 {
     RUBY_FREE_ENTER("vm");
+
     if (vm) {
 	rb_thread_t *th = vm->main_thread;
 #if defined(ENABLE_VM_OBJSPACE) && ENABLE_VM_OBJSPACE
 	struct rb_objspace *objspace = vm->objspace;
 #endif
-	rb_gc_force_recycle(vm->self);
 	vm->main_thread = 0;
 	if (th) {
 	    rb_fiber_reset_root_local_storage(th->self);
 	    thread_free(th);
 	}
-	if (vm->living_threads) {
-	    st_free_table(vm->living_threads);
-	    vm->living_threads = 0;
-	}
+	rb_vm_living_threads_init(vm);
 	ruby_vm_run_at_exit_hooks(vm);
 	rb_vm_gvl_destroy(vm);
 #if defined(ENABLE_VM_OBJSPACE) && ENABLE_VM_OBJSPACE
@@ -1792,9 +1782,9 @@ vm_memsize(const void *ptr)
     if (ptr) {
 	const rb_vm_t *vmobj = ptr;
 	size_t size = sizeof(rb_vm_t);
-	if (vmobj->living_threads) {
-	    size += st_memsize(vmobj->living_threads);
-	}
+
+	size += vmobj->living_thread_num * sizeof(rb_thread_t);
+
 	if (vmobj->defined_strings) {
 	    size += DEFINED_EXPR * sizeof(VALUE);
 	}
@@ -1894,6 +1884,7 @@ static void
 vm_init2(rb_vm_t *vm)
 {
     MEMZERO(vm, rb_vm_t, 1);
+    rb_vm_living_threads_init(vm);
     vm->src_encoding_index = -1;
     vm->at_exit.basic.flags = (T_ARRAY | RARRAY_EMBED_FLAG) & ~RARRAY_EMBED_LEN_MASK; /* len set 0 */
     rb_obj_hide((VALUE)&vm->at_exit);
@@ -2265,7 +2256,9 @@ m_core_set_postexe(VALUE self)
     return Qnil;
 }
 
-static VALUE m_core_hash_merge_ary(VALUE self, VALUE hash, VALUE ary);
+static VALUE core_hash_merge_ary(VALUE hash, VALUE ary);
+static VALUE core_hash_from_ary(VALUE ary);
+static VALUE core_hash_merge_kwd(int argc, VALUE *argv);
 
 static VALUE
 core_hash_merge(VALUE hash, long argc, const VALUE *argv)
@@ -2282,17 +2275,32 @@ core_hash_merge(VALUE hash, long argc, const VALUE *argv)
 static VALUE
 m_core_hash_from_ary(VALUE self, VALUE ary)
 {
+    VALUE hash;
+    REWIND_CFP(hash = core_hash_from_ary(ary));
+    return hash;
+}
+
+static VALUE
+core_hash_from_ary(VALUE ary)
+{
     VALUE hash = rb_hash_new();
 
     if (RUBY_DTRACE_HASH_CREATE_ENABLED()) {
 	RUBY_DTRACE_HASH_CREATE(RARRAY_LEN(ary), rb_sourcefile(), rb_sourceline());
     }
 
-    return m_core_hash_merge_ary(self, hash, ary);
+    return core_hash_merge_ary(hash, ary);
 }
 
 static VALUE
 m_core_hash_merge_ary(VALUE self, VALUE hash, VALUE ary)
+{
+    REWIND_CFP(core_hash_merge_ary(hash, ary));
+    return hash;
+}
+
+static VALUE
+core_hash_merge_ary(VALUE hash, VALUE ary)
 {
     core_hash_merge(hash, RARRAY_LEN(ary), RARRAY_CONST_PTR(ary));
     return hash;
@@ -2303,7 +2311,7 @@ m_core_hash_merge_ptr(int argc, VALUE *argv, VALUE recv)
 {
     VALUE hash = argv[0];
 
-    core_hash_merge(hash, argc-1, argv+1);
+    REWIND_CFP(core_hash_merge(hash, argc-1, argv+1));
 
     return hash;
 }
@@ -2336,6 +2344,14 @@ kwcheck_i(VALUE key, VALUE value, VALUE hash)
 static VALUE
 m_core_hash_merge_kwd(int argc, VALUE *argv, VALUE recv)
 {
+    VALUE hash;
+    REWIND_CFP(hash = core_hash_merge_kwd(argc, argv));
+    return hash;
+}
+
+static VALUE
+core_hash_merge_kwd(int argc, VALUE *argv)
+{
     VALUE hash, kw;
     rb_check_arity(argc, 1, 2);
     hash = argv[0];
@@ -2357,7 +2373,7 @@ extern VALUE *rb_gc_register_stack_start;
 static VALUE
 sdr(void)
 {
-    rb_vm_bugreport();
+    rb_vm_bugreport(NULL);
     return Qnil;
 }
 
@@ -2665,8 +2681,7 @@ Init_VM(void)
 	th->top_self = rb_vm_top_self();
 	rb_thread_set_current(th);
 
-	vm->living_threads = st_init_numtable();
-	st_insert(vm->living_threads, th_self, (st_data_t) th->thread_id);
+	rb_vm_living_threads_insert(vm, th);
 
 	rb_gc_register_mark_object(iseqval);
 	GetISeqPtr(iseqval, iseq);
@@ -3000,4 +3015,3 @@ vm_collect_usage_register(int reg, int isset)
 	(*ruby_vm_collect_usage_func_register)(reg, isset);
 }
 #endif
-

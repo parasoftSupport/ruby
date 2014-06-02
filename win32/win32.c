@@ -2049,7 +2049,7 @@ rb_w32_conv_from_wchar(const WCHAR *wstr, rb_encoding *enc)
 {
     VALUE src;
     long len = lstrlenW(wstr);
-    int encindex = ENC_TO_ENCINDEX(enc);
+    int encindex = rb_enc_to_index(enc);
 
     if (encindex == ENCINDEX_UTF_16LE) {
 	return rb_enc_str_new((char *)wstr, len * sizeof(WCHAR), enc);
@@ -5865,55 +5865,6 @@ rb_w32_pipe(int fds[2])
 }
 
 /* License: Ruby's */
-int
-ustatfs(const char *path, struct statfs *buf)
-{
-    WCHAR *wpath = utf8_to_wstr(path, NULL);
-    WCHAR root[MAX_PATH], system[8];
-    DWORD serial, spc, bps, unused, total;
-    char *tmp;
-    WINBASEAPI BOOL WINAPI GetVolumePathNameW(LPCWSTR, LPWSTR, DWORD);
-
-    if (!wpath) {
-	return -1;
-    }
-
-    if (!GetVolumePathNameW(wpath, root, sizeof(root) / sizeof(WCHAR))) {
-	free(wpath);
-	errno = map_errno(GetLastError());
-	return -1;
-    }
-    free(wpath);
-
-    if (!GetVolumeInformationW(root, NULL, 0, &serial, NULL, NULL,
-			       system, sizeof(system) / sizeof(WCHAR))) {
-	errno = map_errno(GetLastError());
-	return -1;
-    }
-
-    if (!GetDiskFreeSpaceW(root, &spc, &bps, &unused, &total)) {
-	errno = map_errno(GetLastError());
-	return -1;
-    }
-
-    tmp = wstr_to_filecp(system, NULL);
-    if (!tmp) {
-	return -1;
-    }
-    strlcpy(buf->f_fstypename, tmp, sizeof(buf->f_fstypename));
-    free(tmp);
-
-    buf->f_type = 0;
-    buf->f_bsize = (uint64_t)spc * bps;
-    buf->f_blocks = total;
-    buf->f_bfree = buf->f_bavail = unused;
-    buf->f_files = buf->f_ffree = 0;
-    buf->f_fsid = serial;
-
-    return 0;
-}
-
-/* License: Ruby's */
 static int
 console_emulator_p(void)
 {
@@ -7213,4 +7164,8 @@ rb_w32_pow(double x, double y)
     _controlfp(default_control, _MCW_PC);
     return r;
 }
+#endif
+
+#if RUBY_MSVCRT_VERSION < 120
+#include "missing/nextafter.c"
 #endif

@@ -733,11 +733,14 @@ class TestProcess < Test::Unit::TestCase
     }
     with_pipe {|r, w|
       io = IO.popen([RUBY, "-e", "STDERR.reopen(STDOUT); IO.new(#{w.fileno}, 'w').puts('me')"])
-      w.close
-      errmsg = io.read
-      assert_equal("", r.read)
-      assert_not_equal("", errmsg)
-      Process.wait
+      begin
+        w.close
+        errmsg = io.read
+        assert_equal("", r.read)
+        assert_not_equal("", errmsg)
+      ensure
+        io.close
+      end
     }
     with_pipe {|r, w|
       errmsg = `#{RUBY} -e "STDERR.reopen(STDOUT); IO.new(#{w.fileno}, 'w').puts(123)"`
@@ -785,29 +788,38 @@ class TestProcess < Test::Unit::TestCase
       }
       with_pipe {|r, w|
         io = IO.popen([RUBY, "-e", "STDERR.reopen(STDOUT); IO.new(#{w.fileno}, 'w').puts('me')", :close_others=>true])
-        w.close
-        errmsg = io.read
-        assert_equal("", r.read)
-        assert_not_equal("", errmsg)
-        Process.wait
+        begin
+          w.close
+          errmsg = io.read
+          assert_equal("", r.read)
+          assert_not_equal("", errmsg)
+        ensure
+          io.close
+        end
       }
       with_pipe {|r, w|
         w.close_on_exec = false
         io = IO.popen([RUBY, "-e", "STDERR.reopen(STDOUT); IO.new(#{w.fileno}, 'w').puts('mo')", :close_others=>false])
-        w.close
-        errmsg = io.read
-        assert_equal("mo\n", r.read)
-        assert_equal("", errmsg)
-        Process.wait
+        begin
+          w.close
+          errmsg = io.read
+          assert_equal("mo\n", r.read)
+          assert_equal("", errmsg)
+        ensure
+          io.close
+        end
       }
       with_pipe {|r, w|
         w.close_on_exec = false
         io = IO.popen([RUBY, "-e", "STDERR.reopen(STDOUT); IO.new(#{w.fileno}, 'w').puts('mo')", :close_others=>nil])
-        w.close
-        errmsg = io.read
-        assert_equal("mo\n", r.read)
-        assert_equal("", errmsg)
-        Process.wait
+        begin
+          w.close
+          errmsg = io.read
+          assert_equal("mo\n", r.read)
+          assert_equal("", errmsg)
+        ensure
+          io.close
+        end
       }
 
     }
@@ -1131,8 +1143,7 @@ class TestProcess < Test::Unit::TestCase
       Process.wait spawn([RUBY, "poiu"], "-e", "exit 4")
       assert_equal(4, $?.exitstatus)
 
-      assert_equal("1", IO.popen([[RUBY, "qwerty"], "-e", "print 1"]).read)
-      Process.wait
+      assert_equal("1", IO.popen([[RUBY, "qwerty"], "-e", "print 1"]) {|f| f.read })
 
       write_file("s", <<-"End")
         exec([#{RUBY.dump}, "lkjh"], "-e", "exit 5")
@@ -1201,6 +1212,23 @@ class TestProcess < Test::Unit::TestCase
 
   def test_status_kill
     return unless Process.respond_to?(:kill)
+    return unless Signal.list.include?("KILL")
+
+    # assume the system supports signal if SIGQUIT is available
+    expected = Signal.list.include?("QUIT") ? [false, true, false, nil] : [true, false, false, true]
+
+    with_tmpchdir do
+      write_file("foo", "Process.kill(:KILL, $$); exit(42)")
+      system(RUBY, "foo")
+      s = $?
+      assert_equal(expected,
+                   [s.exited?, s.signaled?, s.stopped?, s.success?],
+                   "[s.exited?, s.signaled?, s.stopped?, s.success?]")
+    end
+  end
+
+  def test_status_quit
+    return unless Process.respond_to?(:kill)
     return unless Signal.list.include?("QUIT")
 
     with_tmpchdir do
@@ -1209,21 +1237,20 @@ class TestProcess < Test::Unit::TestCase
       IO.pipe do |r, w|
         pid = spawn(RUBY, "foo", out: w)
         w.close
-        Thread.new { r.read(1); Process.kill(:SIGQUIT, pid) }
+        th = Thread.new { r.read(1); Process.kill(:SIGQUIT, pid) }
         Process.wait(pid)
+        th.join
       end
       t = Time.now
       s = $?
-      assert_equal([false, true, false],
-                   [s.exited?, s.signaled?, s.stopped?],
-                   "[s.exited?, s.signaled?, s.stopped?]")
+      assert_equal([false, true, false, nil],
+                   [s.exited?, s.signaled?, s.stopped?, s.success?],
+                   "[s.exited?, s.signaled?, s.stopped?, s.success?]")
       assert_send(
         [["#<Process::Status: pid #{ s.pid } SIGQUIT (signal #{ s.termsig })>",
           "#<Process::Status: pid #{ s.pid } SIGQUIT (signal #{ s.termsig }) (core dumped)>"],
          :include?,
          s.inspect])
-      assert_equal(false, s.exited?)
-      assert_equal(nil, s.success?)
       EnvUtil.diagnostic_reports("QUIT", RUBY, pid, t)
     end
   end

@@ -1,12 +1,8 @@
 # encoding: utf-8
-######################################################################
-# This file is imported from the minitest project.
-# DO NOT make modifications in this repo. They _will_ be reverted!
-# File a patch instead and assign it to Ryan Davis.
-######################################################################
 
 require "optparse"
 require "rbconfig"
+require "leakchecker"
 
 ##
 # Minimal (mostly drop-in) replacement for test-unit.
@@ -135,11 +131,16 @@ module MiniTest
       return "Expected: #{mu_pp exp}\n  Actual: #{mu_pp act}" unless
         need_to_diff
 
+      tempfile_a = nil
+      tempfile_b = nil
+
       Tempfile.open("expect") do |a|
+        tempfile_a = a
         a.puts expect
         a.flush
 
         Tempfile.open("butwas") do |b|
+          tempfile_b = b
           b.puts butwas
           b.flush
 
@@ -160,6 +161,9 @@ module MiniTest
       end
 
       result
+    ensure
+      tempfile_a.close! if tempfile_a
+      tempfile_b.close! if tempfile_b
     end
 
     ##
@@ -519,10 +523,12 @@ module MiniTest
 
           [captured_stdout.read, captured_stderr.read]
         ensure
-          captured_stdout.unlink
-          captured_stderr.unlink
           $stdout.reopen orig_stdout
           $stderr.reopen orig_stderr
+          orig_stdout.close
+          orig_stderr.close
+          captured_stdout.close!
+          captured_stderr.close!
         end
       end
     end
@@ -907,8 +913,6 @@ module MiniTest
     ##
     # Runs all the +suites+ for a given +type+.
     #
-    # NOTE: this method is redefined in parallel_each.rb, which is
-    # loaded if a test-suite calls parallelize_me!.
 
     def _run_suites suites, type
       suites.map { |suite| _run_suite suite, type }
@@ -930,6 +934,8 @@ module MiniTest
         filter === m || filter === "#{suite}##{m}"
       }
 
+      leakchecker = LeakChecker.new
+
       assertions = filtered_test_methods.map { |method|
         inst = suite.new method
         inst._assertions = 0
@@ -942,6 +948,8 @@ module MiniTest
         print "%.2f s = " % (Time.now - start_time) if @verbose
         print result
         puts if @verbose
+
+        leakchecker.check("#{inst.class}\##{inst.__name__}")
 
         inst._assertions
       }
@@ -1348,20 +1356,6 @@ module MiniTest
 
         define_method :mu_pp do |o|
           o.pretty_inspect
-        end
-      end
-
-      ##
-      # Call this at the top of your tests when you want to run your
-      # tests in parallel. In doing so, you're admitting that you rule
-      # and your tests are awesome.
-
-      def self.parallelize_me!
-        require "minitest/parallel_each"
-
-        class << self
-          undef_method :test_order if method_defined? :test_order
-          define_method :test_order do :parallel end
         end
       end
 

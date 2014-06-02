@@ -675,7 +675,7 @@ static void ripper_compile_error(struct parser_params*, const char *fmt, ...);
 #else
 # define rb_compile_error rb_compile_error_with_enc
 # define compile_error parser->nerr++,rb_compile_error_with_enc
-# define PARSER_ARG ruby_sourcefile, ruby_sourceline, current_enc,
+# define PARSER_ARG ruby_sourcefile, ruby_sourceline, (void *)current_enc,
 #endif
 
 /* Older versions of Yacc set YYMAXDEPTH to a very low value by default (150,
@@ -5594,6 +5594,8 @@ parser_str_new(const char *p, long n, rb_encoding *enc, int func, rb_encoding *e
 #define lex_eol_p() (lex_p >= lex_pend)
 #define peek(c) peek_n((c), 0)
 #define peek_n(c,n) (lex_p+(n) < lex_pend && (c) == (unsigned char)lex_p[n])
+#define peekc() peekc_n(0)
+#define peekc_n(n) (lex_p+(n) < lex_pend ? (unsigned char)lex_p[n] : -1)
 
 static inline int
 parser_nextc(struct parser_params *parser)
@@ -6453,6 +6455,14 @@ parser_number_literal_suffix(struct parser_params *parser, int mask)
 	    return 0;
 	}
 	pushback(c);
+	if (c == '.') {
+	    c = peekc_n(1);
+	    if (ISDIGIT(c)) {
+		yyerror("unexpected fraction part after numeric literal");
+		lex_p += 2;
+		while (parser_is_identchar()) nextc();
+	    }
+	}
 	break;
     }
     return result;
@@ -10035,11 +10045,6 @@ reg_compile_gen(struct parser_params* parser, VALUE str, int options)
     return re;
 }
 
-void
-rb_gc_mark_parser(void)
-{
-}
-
 NODE*
 rb_parser_append_print(VALUE vparser, NODE *node)
 {
@@ -10652,7 +10657,9 @@ next_id(VALUE str)
 static ID
 intern_str(VALUE str)
 {
-    return register_static_symid_str(next_id(str), str);
+    ID id = next_id(str);
+    if (ID_DYNAMIC_SYM_P(id) && is_attrset_id(id)) return id;
+    return register_static_symid_str(id, str);
 }
 
 ID

@@ -404,6 +404,22 @@ struct RBignum {
 
 #define RBIGNUM(obj) (R_CAST(RBignum)(obj))
 
+struct RRational {
+    struct RBasic basic;
+    const VALUE num;
+    const VALUE den;
+};
+
+#define RRATIONAL(obj) (R_CAST(RRational)(obj))
+
+struct RSymbol {
+    struct RBasic basic;
+    VALUE fstr;
+    ID type;
+};
+
+#define RSYMBOL(obj) (R_CAST(RSymbol)(obj))
+
 /* class.c */
 void rb_class_subclass_add(VALUE super, VALUE klass);
 void rb_class_remove_from_super_subclasses(VALUE);
@@ -746,7 +762,6 @@ int rb_is_attrset_name(VALUE name);
 int rb_is_local_name(VALUE name);
 int rb_is_method_name(VALUE name);
 int rb_is_junk_name(VALUE name);
-void rb_gc_mark_parser(void);
 void rb_gc_mark_symbols(int full_mark);
 ID rb_make_internal_id(void);
 void rb_gc_free_dsymbol(VALUE);
@@ -903,7 +918,6 @@ VALUE rb_sourcefilename(void);
 void rb_vm_pop_cfunc_frame(void);
 
 /* vm_dump.c */
-void rb_vm_bugreport(void);
 void rb_print_backtrace(void);
 
 /* vm_eval.c */

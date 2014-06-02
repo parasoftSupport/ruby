@@ -1,9 +1,12 @@
 require 'rbconfig'
 
-require 'test/unit'
-
 src_testdir = File.dirname(File.realpath(__FILE__))
 $LOAD_PATH << src_testdir
+$LOAD_PATH.unshift "#{src_testdir}/lib"
+
+require 'test/unit'
+require_relative 'ruby/envutil'
+
 module Gem
 end
 class Gem::TestCase < MiniTest::Unit::TestCase

@@ -1,3 +1,1071 @@
+Tue Jun  3 01:34:59 2014  Zachary Scott  <e@zzak.io>
+
+	* README.EXT: [DOC] Add rb_call_super when subclassing from @robin850
+	  [Fixes GH-623] https://github.com/ruby/ruby/pull/623
+
+Mon Jun  2 17:14:49 2014  Koichi Sasada  <ko1@atdot.net>
+
+	* vm.c (ruby_vm_destruct): remove useless call of
+	  rb_gc_force_recycle().
+
+	  At this line, a VM object is already freed
+	  (is changed to T_NONE) by rb_gc_call_finalizer_at_exit().
+
+Mon Jun  2 15:50:24 2014  Koichi Sasada  <ko1@atdot.net>
+
+	* eval.c (rb_using_refinement): add write-barriers for
+	  cref->nd_refinements.
+
+Mon Jun  2 12:26:08 2014  SHIBATA Hiroshi  <shibata.hiroshi@gmail.com>
+
+	* CONTRIBUTING.md: added contributing guide for github. [fix GH-625]
+
+Mon Jun  2 07:30:33 2014  Tanaka Akira  <akr@fsij.org>
+
+	* test/ruby/envutil.rb (default_warning): New method.
+
+	* test/ruby/test_autoload.rb: Use EnvUtil.default_warning.
+
+Mon Jun  2 07:05:59 2014  Nobuyoshi Nakada  <nobu@ruby-lang.org>
+
+	* include/ruby/encoding.h: constify `rb_encoding` arguments.
+
+	* include/ruby/oniguruma.h: constify `OnigEncoding` arguments.
+
+Sun Jun  1 12:05:10 2014  Tanaka Akira  <akr@fsij.org>
+
+	* test/drb: Wrap tests definitions by DRbTests module.  This makes
+	  several tests (ACLEntryTest, TestBug4409, etc.) easier to understand
+	  that they are tests for DRb.
+
+Sun Jun  1 11:36:25 2014  Tanaka Akira  <akr@fsij.org>
+
+	* lib/rinda/ring.rb (RingFinger#make_socket): Close the socket on
+	  exception.
+
+Sun Jun  1 06:55:26 2014  Nobuyoshi Nakada  <nobu@ruby-lang.org>
+
+	* parse.y (intern_str): dynamic attrset ID is registered by
+	  `rb_id_attrset()` already, so no further registration is needed.
+	  [ruby-core:62861]
+
+Sun Jun  1 04:52:47 2014  Zachary Scott  <e@zzak.io>
+
+	* lib/English.rb: [DOC] $LOADED_FEATURES moved to load.c [Fixes GH-620]
+	  Patch submitted by @leafac in https://github.com/ruby/ruby/pull/620
+	* doc/globals.rdoc: Added $LOADED_FEATURES to list
+
+Sat May 31 22:30:14 2014  Tanaka Akira  <akr@fsij.org>
+
+	* test/lib/leakchecker.rb: Leak checker extracted from
+	  test/lib/minitest/unit.rb.
+
+Sat May 31 21:15:43 2014  URABE Shyouhei  <shyouhei@ruby-lang.org>
+
+	* thread.c (rb_thread_atfork_internal): My compiler complains
+	  about this variable being used before initialized. I looked at
+	  the code and expanded the macro and turned out it was actually
+	  USED for pointer arithmetic, not dereferenced.  So this was
+	  never a serious bug.  But is annoying indeed to see warnings
+	  every time.  I added `=0` and all went healthy.
+
+	* configure.in: Also, I found that the problematic macro expansion
+	  only happens when we lack __typeof__ C extension, which shall
+	  not be the case of my compiler.  I added AC_C_TYPEOF to kick ass.
+
+Sat May 31 16:32:50 2014  SHIBATA Hiroshi  <shibata.hiroshi@gmail.com>
+
+	* lib/ipaddr.rb: extracted inline tests into test dir.
+	* test/test_ipaddr.rb: ditto.
+
+Sat May 31 16:29:21 2014  SHIBATA Hiroshi  <shibata.hiroshi@gmail.com>
+
+	* ext/digest/lib/digest/hmac.rb: extracted inline tests into test dir.
+	* test/digest/test_digest_hmac.rb: ditto.
+
+Sat May 31 16:02:03 2014  SHIBATA Hiroshi  <shibata.hiroshi@gmail.com>
+
+	* test/test_syslog.rb: remove executable.
+
+Sat May 31 08:58:32 2014  Nobuyoshi Nakada  <nobu@ruby-lang.org>
+
+	* enc/unicode.c (init_case_fold_table): no longer need to
+	  initialize tables at runtime.
+
+	* enc/unicode/case-folding.rb (lookup_hash): make perfect hash to
+	  lookup case unfolding table 3.
+
+	* enc/unicode/case-folding.rb (lookup_hash): make perfect hash to
+	  lookup case unfolding table 2.
+
+	* enc/unicode/case-folding.rb (lookup_hash): make perfect hash to
+	  lookup case unfolding table 1.
+
+	* enc/unicode/case-folding.rb (lookup_hash): make perfect hash to
+	  lookup case folding table.
+
+	* enc/unicode/case-folding.rb (print_table): merge non-locale and
+	  locale tables, and reduce initializing loops.
+
+	* enc/unicode/case-folding.rb (CaseFolding): modularize, and add
+	  --output-file option.
+
+	* enc/unicode/case-folding.rb: script to convert CaseFolding.txt,
+	  translated from CaseFolding.py.
+
+Sat May 31 08:31:41 2014  Tanaka Akira  <akr@fsij.org>
+
+	* test/lib/minitest/unit.rb: Check Tempfile leaks for each test method
+	  again.
+
+Sat May 31 03:50:50 2014  Zachary Scott  <e@zzak.io>
+
+	* lib/delegate.rb: [DOC] Document raise in Delegator class
+	  Patch by @lucasmazza. [Fixes GH-621]
+	  https://github.com/ruby/ruby/pull/621
+
+Fri May 30 21:23:26 2014  Tanaka Akira  <akr@fsij.org>
+
+	* lib/webrick/server.rb: Use a pipe to detect server shutdown.
+	  shutdown() or close() for listening socket is not a reliable.
+	  Actually, both doesn't work (doesn't wake up select()) on
+	  DragonFly BSD 3.6.2.
+
+	* test/webrick/utils.rb: :ShutdownSocketWithoutClose is not required
+	  now to immediate server shutdown detection.
+	  This fixes fd leaks.
+
+	* test/net/http/utils.rb: Ditto.
+
+Fri May 30 20:58:37 2014  Tanaka Akira  <akr@fsij.org>
+
+	* test/lib/minitest/unit.rb (check_fd_leak): Sort the inspected
+	  objects list for a FD.
+
+Fri May 30 18:06:55 2014  Tanaka Akira  <akr@fsij.org>
+
+	* test/lib/minitest/unit.rb (check_fd_leak): Try GC to delete leaked
+	  FDs.
+
+Fri May 30 12:05:59 2014  NARUSE, Yui  <naruse@ruby-lang.org>
+
+	* test/lib/test/unit/parallel.rb (_run_suite): orig_stdout may be nil
+	  though I don't know the reason.
+
+Fri May 30 11:33:35 2014  Nobuyoshi Nakada  <nobu@ruby-lang.org>
+
+	* string.c (rb_str_substr): need to reset code range for shared
+	  string too, not only copied string.
+	  [ruby-core:62842] [Bug #9882]
+
+Fri May 30 10:22:21 2014  Mark Lorenz  <mlorenz@covermymeds.com>
+
+	* lib/erb.rb (result): [DOC] no longer accepts a Proc, as
+	  Kernel.eval does not.  [fix GH-619]
+
+Fri May 30 07:25:46 2014  Tanaka Akira  <akr@fsij.org>
+
+	* ext/-test-/dir: Dir#fileno implemented.
+
+	* test/lib/minitest/unit.rb (find_fds): Don't return the fd used to
+	  scan /proc/$$/fd.
+
+Fri May 30 04:48:00 2014  Eric Wong  <e@80x24.org>
+
+	* parse.y (rb_gc_mark_parser): remove, empty since r8758
+	* internal.h: ditto, not usable from extensions since 2.0.0
+	* gc.c (gc_mark_roots): remove checkpoint for parser
+
+Thu May 29 23:27:50 2014  Rei Odaira  <Rei.Odaira@gmail.com>
+
+	* signal.c (ruby_signal): should return either `old.sa_sigaction`
+	  or `old.sa_handler`, depending on whether `SA_SIGINFO` is set in
+	  `old.sa_flags`, because they may not be a union.
+	  [ruby-core:62836] [Bug #9878]
+
+Thu May 29 23:11:20 2014  Tanaka Akira  <akr@fsij.org>
+
+	* io.c (pipe_open): Close pipes when rb_execarg_fixup() raises
+	  an exception.
+	  (rb_execarg_fixup_v): New function.
+
+Thu May 29 22:18:57 2014  Tanaka Akira  <akr@fsij.org>
+
+	* test/lib/minitest/unit.rb (capture_subprocess_io): Close fds.
+
+Thu May 29 19:47:08 2014  Tanaka Akira  <akr@fsij.org>
+
+	* io.c (rb_io_s_pipe): Close pipes if io_encoding_set() raises an
+	  exception.
+	  (io_encoding_set_v): New function.
+
+Thu May 29 19:42:49 2014  Tanaka Akira  <akr@fsij.org>
+
+	* lib/csv.rb (CSV.open): Close the opened file when an exception
+	  occur.
+
+Thu May 29 19:31:10 2014  Tanaka Akira  <akr@fsij.org>
+
+	* ext/openssl/lib/openssl/ssl.rb (SSLServer#accept): Close a socket
+	  if any exception occur.
+
+Thu May 29 05:05:29 2014  Eric Wong  <e@80x24.org>
+
+	* include/ruby/ruby.h: Hide Symbol internals.
+	  (struct RSymbol): moved to internal.h
+	  (RSYMBOL): ditto
+
+Thu May 29 00:28:56 2014  Tanaka Akira  <akr@fsij.org>
+
+	* ext/socket/unixsocket.c (rsock_init_unixsock): Open a socket
+	  after path length check.
+	  This fixes a fd leak by TestSocket_UNIXSocket#test_too_long_path.
+
+Wed May 28 23:04:35 2014  Tanaka Akira  <akr@fsij.org>
+
+	* test/ruby/test_io.rb (test_flush_in_finalizer1): Use
+	  ObjectSpace.each_object to close files.
+	  GC.start is not reliable.
+
+Wed May 28 19:00:31 2014  Tanaka Akira  <akr@fsij.org>
+
+	* lib/net/imap.rb (Net::IMAP#initialize): Close the opened socket when
+	  any exception occur.
+	  This fixes a fd leak by IMAPTest#test_imaps_post_connection_check
+	  which start_tls_session() raises an exception.
+
+Wed May 28 18:06:13 2014  Tanaka Akira  <akr@fsij.org>
+
+	* ext/openssl/ossl_ssl.c (ossl_ssl_close): Fix sync_close to work
+	  when SSL is not started.
+	  This fix the fd leak by test_https_proxy_authentication in
+	  test/net/http/test_https_proxy.rb.
+
+Wed May 28 10:29:28 2014  Eric Wong  <e@80x24.org>
+
+	* vm.c (rb_vm_living_threads_foreach): remove function
+	  [ruby-core:62745]
+	* thread.c (terminate_i): remove
+	* thread.c (terminate_all): implement (inlines old terminate_i)
+	* thread.c (rb_thread_terminate_all): use terminate_all
+	* thread.c (rb_thread_fd_close_i): remove
+	* thread.c (rb_thread_fd_close): iterate inline
+	* thread.c (thread_list_i): remove
+	* thread.c (rb_thread_list): iterate inline
+	* thread.c (rb_thread_atfork_internal): iterate inline
+	* thread.c (terminate_atfork_i): update types to remove casts
+	* thread.c (terminate_atfork_before_exec_i): ditto
+	* thread.c (struct thgroup_list_params): remove definition
+	* thread.c (thgroup_list_i): remove
+	* thread.c (thgroup_list): iterate inline
+	* thread.c (check_deadlock_i): remove
+	* thread.c (debug_deadlock_check): implement (inlines check_deadlock_i)
+	* thread.c (debug_i): remove
+	* thread.c (rb_check_deadlock): iterate inline
+	* vm.c (vm_mark_each_thread_func): remove
+	* vm.c (rb_vm_mark): iterate inline
+	* vm_core.h (rb_vm_living_threads_remove): remove
+	* vm_trace.c (clear_trace_func_i): remove
+	* vm_trace.c (rb_clear_trace_func): iterate inline
+
+Wed May 28 09:30:51 2014  Eric Wong  <e@80x24.org>
+
+	* signal.c (signal_exec): ignore immediate cmd for SIG_IGN
+	* signal.c (trap_handler): set cmd to true for SIG_IGN
+	* signal.c (trap): handle nil and true values for oldcmd
+	  [Bug #9835]
+
+Wed May 28 01:02:54 2014  Tanaka Akira  <akr@fsij.org>
+
+	* lib/tempfile.rb (Tempfile#inspect): Show "(closed)" if the tempfile
+	  is closed.
+
+Wed May 28 00:38:09 2014  Tanaka Akira  <akr@fsij.org>
+
+	* test/lib/minitest/unit.rb: Use Tempfile#close! instead of
+	  Tempfile#unlink to close file descriptors.
+
+	* test/openssl/test_config.rb: Ditto.
+
+	* test/ruby/test_io.rb: Ditto.
+
+Wed May 28 00:06:18 2014  Tanaka Akira  <akr@fsij.org>
+
+	* lib/net/ftp.rb (transfercmd): Close TCP server socket even if an
+	  exception occur.
+
+Tue May 27 23:50:07 2014  Tanaka Akira  <akr@fsij.org>
+
+	* lib/cgi/core.rb: Use Tempfile#close! instead of Tempfile#unlink
+	  to close file descriptors.
+
+Tue May 27 23:06:46 2014  Nobuyoshi Nakada  <nobu@ruby-lang.org>
+
+	* parse.y (parser_number_literal_suffix): refine error message for
+	  extra dot and digits.
+
+Tue May 27 22:44:20 2014  Tanaka Akira  <akr@fsij.org>
+
+	* test/rexml: Avoid fd leaks.
+
+Tue May 27 22:24:25 2014  Kouhei Sutou  <kou@cozmixng.org>
+
+	* test/rexml/test_document.rb: Indent.
+
+Tue May 27 22:15:29 2014  Kouhei Sutou  <kou@cozmixng.org>
+
+	* test/rexml/test_document.rb: Wrap by REXMLTests module.
+
+Tue May 27 22:11:10 2014  Kouhei Sutou  <kou@cozmixng.org>
+
+	* test/rexml/test_encoding_2.rb: Remove a needless file.
+
+Tue May 27 22:10:30 2014  Kouhei Sutou  <kou@cozmixng.org>
+
+	* test/rexml/test_contrib.rb: Indent.
+
+Tue May 27 21:28:16 2014  NARUSE, Yui  <naruse@ruby-lang.org>
+
+	* ext/socket/ifaddr.c (ifaddr_inspect_flags): support IFF_SIMPLEX.
+
+Tue May 27 21:03:03 2014  Kouhei Sutou  <kou@cozmixng.org>
+
+	* test/rexml/: Use REXMLTests as wrapping module for REXML tests.
+	  I avoid using the same module for library in test because
+	  it provides "include REXML" environment in test. Normally,
+	  users don't use REXML on "include REXML" environment. So I
+	  don't want to write tests on "include REXML" environment.
+
+Tue May 27 20:59:37 2014  Kouhei Sutou  <kou@cozmixng.org>
+
+	* test/rexml/test_comment.rb: Remove needless REXML module wrapping.
+
+Tue May 27 20:56:49 2014  Kouhei Sutou  <kou@cozmixng.org>
+
+	* test/openssl/test_pkcs7.rb: Fix inverted expected and actual values.
+
+Tue May 27 20:26:06 2014  NAKAMURA Usaku  <usa@ruby-lang.org>
+
+	* test/ruby/test_io.rb (test_flush_in_finalizer1): some opened fds are
+	  remain before GC, so unlink the tempfile is failed.
+
+Tue May 27 19:07:26 2014  Tanaka Akira  <akr@fsij.org>
+
+	* io.c (rb_io_autoclose_p): Don't raise on frozen IO.
+
+	* test/lib/minitest/unit.rb: IO#autoclose? may raise IOError.
+
+Tue May 27 19:01:49 2014  SHIBATA Hiroshi  <shibata.hiroshi@gmail.com>
+
+	* test/openssl/test_pair.rb: Modify TestSSL#test_read_and_write
+	  to handle partial sysreads. [Bug #7398][ruby-core:49563]
+	* test/openssl/test_ssl.rb: ditto.
+
+Tue May 27 18:46:23 2014  SHIBATA Hiroshi  <shibata.hiroshi@gmail.com>
+
+	* test/openssl/test_pkcs7.rb: Add tests for PKCS7#type= and add_data.
+	  [Feature #7399][ruby-core:49565]
+
+Tue May 27 17:45:09 2014  SHIBATA Hiroshi  <shibata.hiroshi@gmail.com>
+
+	* test/openssl/test_hmac.rb (test_binary_update): Added Test for
+	  HMAC signing with UTF-8 String. [Bug #7512][ruby-core:50559]
+
+Tue May 27 17:10:14 2014  SHIBATA Hiroshi  <shibata.hiroshi@gmail.com>
+
+	* test/runner.rb: fixed randomly test failure.
+	  [Bug #6573][ruby-core:45563]
+
+Tue May 27 16:58:12 2014  SHIBATA Hiroshi  <shibata.hiroshi@gmail.com>
+
+	* test/test_timeout.rb (test_timeout): inverted test condition.
+	  [Bug #8523]
+
+Tue May 27 12:24:22 2014  Tanaka Akira  <akr@fsij.org>
+
+	* test/lib/minitest/unit.rb: Show leaked file descriptors.
+
+Tue May 27 11:12:56 2014  Nobuyoshi Nakada  <nobu@ruby-lang.org>
+
+	* io.c (rb_io_fileno, rb_io_inspect): non-modification does not
+	  error on frozen IO.  [ruby-dev:48241] [Bug #9865]
+
+Tue May 27 00:00:21 2014  yui-knk  <spiketeika@gmail.com>
+
+	* insns.def (defineclass): fix typo in the instruction comment.
+	  [fix GH-618]
+
+Mon May 26 16:33:15 2014  NAKAMURA Usaku  <usa@ruby-lang.org>
+
+	* test/ruby/test_file.rb: skip the test of atime on Windows, because
+	  Windows delays updating atime about 1 hour.
+	  see more details:
+	    http://msdn.microsoft.com/en-us/library/windows/desktop/ms724290%28v=vs.85%29.aspx
+
+Mon May 26 12:25:36 2014  Nobuyoshi Nakada  <nobu@ruby-lang.org>
+
+	* lib/optionparser.rb, lib/optparse.rb (OptParse): aliases.
+	  [ruby-core:62751] [Feature #9864]
+
+Mon May 26 07:59:34 2014  Tanaka Akira  <akr@fsij.org>
+
+	* test/lib/minitest/unit.rb: Show Finished threads line-by-line.
+
+Mon May 26 01:39:02 2014  Zachary Scott  <e@zzak.io>
+
+	* lib/csv.rb: Reject nil as data source for CSV.new, patch by @Peeja.
+	  [Fixes GH-580] https://github.com/ruby/ruby/pull/580
+
+Mon May 26 01:07:51 2014  Tanaka Akira  <akr@fsij.org>
+
+	* test/lib/minitest/unit.rb: Show leaked threads and tempfiles
+	  line-by-line.
+
+Sun May 25 23:02:06 2014  Tanaka Akira  <akr@fsij.org>
+
+	* test/lib/minitest/unit.rb (MiniTest::Assertions#diff): Remove
+	  tempfiles.
+
+Sun May 25 22:42:27 2014  Tanaka Akira  <akr@fsij.org>
+
+	* test/lib/minitest/unit.rb: Check tempfile leak for each test class.
+
+Sun May 25 20:31:49 2014  Nobuyoshi Nakada  <nobu@ruby-lang.org>
+
+	* configure.in (ac_cv_func_{getcontext,setcontext}): do not
+	  disable ucontext.h entirely, but disable use of functions only.
+	  `ucontext_t` is necessary in the signal handler now.
+
+Sun May 25 20:00:23 2014  Nobuyoshi Nakada  <nobu@ruby-lang.org>
+
+	* signal.c (check_stack_overflow): revert part of r46100, the
+	  previous condition was correct, and fix compilation error on
+	  other architecture linux.  [ruby-core:62746] [Bug #9862]
+
+Sun May 25 17:09:13 2014  Tanaka Akira  <akr@fsij.org>
+
+	* test/lib/minitest/unit.rb: Less ObjectSpace.each_object(Tempfile)
+	  invocation.
+
+Sun May 25 16:54:06 2014  Tanaka Akira  <akr@fsij.org>
+
+	* test/lib/minitest/unit.rb: Use Thread.list instead of
+	  ObjectSpace.each_object(Thread).
+
+Sun May 25 15:53:54 2014  Tanaka Akira  <akr@fsij.org>
+
+	* lib/rinda/ring.rb (Rinda::RingServer#shutdown): Join the killed
+	  threads.
+
+Sun May 25 15:26:17 2014  Tanaka Akira  <akr@fsij.org>
+
+	* lib/webrick/utils.rb: Override the inspect method of the thread
+	  used in WEBrick::Utils::TimeoutHandler.
+
+Sun May 25 14:22:30 2014  Tanaka Akira  <akr@fsij.org>
+
+	* test/openssl: Join threads.
+
+Sun May 25 12:46:47 2014  Nobuyoshi Nakada  <nobu@ruby-lang.org>
+
+	* error.c (rb_bug_context): new function to report bug with
+	  context.
+
+	* vm_dump.c (rb_vm_bugreport): accepts `ucontext_t` argument to
+	  dump machine registers.  based on [GH-584].
+
+	* signal.c (sigbus, sigsegv): dump machine registers if available.
+
+Sun May 25 12:32:42 2014  Tanaka Akira  <akr@fsij.org>
+
+	* test/lib/minitest/unit.rb: Sort leaked threads and tempfiles.
+
+Sun May 25 12:15:30 2014  Nobuyoshi Nakada  <nobu@ruby-lang.org>
+
+	* signal.c (check_stack_overflow): fix condition to use ucontext
+	  register, mcontext_t dereference, and its member names, on Mac
+	  OS X.
+
+Sun May 25 11:58:26 2014  Zachary Scott  <e@zzak.io>
+
+	* enumerator.c: [DOC] Fix example to show Enumerator#peek behavior
+	  Patch by Erik Hollembeak [Bug #9814]
+
+Sun May 25 11:56:33 2014  Nobuyoshi Nakada  <nobu@ruby-lang.org>
+
+	* vsnprintf.c (BSD_vfprintf): fix string width when precision is
+	  given.  as the result of `memchr` is NULL or its offset from the
+	  start cannot exceed the size, the comparison was always false.
+	  [ruby-core:62737] [Bug #9861]
+
+Sun May 25 10:34:15 2014  Zachary Scott  <e@zzak.io>
+
+	* doc/regexp.rdoc: [DOC] Clarify whitespace matching by @allolex
+	  [Fixes GH-606] https://github.com/ruby/ruby/pull/606
+
+Sun May 25 10:19:34 2014  Zachary Scott  <e@zzak.io>
+
+	* enum.c: [DOC] Use #find in example to clarify alias by @rachellogie
+	  Patch submitted via documenting-ruby/ruby#34
+
+Sun May 25 10:16:43 2014  Zachary Scott  <e@zzak.io>
+
+	* cont.c: [DOC] Fix rdoc in example for Fiber#transfer by @majjoha
+	  Patch submitted via documenting-ruby/ruby#33
+
+Sun May 25 10:01:11 2014  Zachary Scott  <e@zzak.io>
+
+	* lib/irb.rb: [DOC] Fixed syntax error in example by @jasdeepsingh.
+	  Patch submitted via documenting-ruby/ruby#32
+
+Sun May 25 09:58:02 2014  SHIBATA Hiroshi  <shibata.hiroshi@gmail.com>
+
+	* test/fileutils/test_fileutils.rb (test_chown_R): Add tests for
+	  chown_R. [Feature #9383][ruby-core:59641]
+
+Sun May 25 09:57:09 2014  SHIBATA Hiroshi  <shibata.hiroshi@gmail.com>
+
+	* test/fileutils/test_fileutils.rb: Added recursively chown tests.
+	  [Feature #9303][ruby-core:59325]
+
+Sun May 25 09:41:56 2014  Zachary Scott  <e@zzak.io>
+
+	* class.c: [DOC] Fixed grammar and examples of instance_methods.
+	  By @alex-frost via documenting-ruby/ruby#31
+
+Sun May 25 09:40:44 2014  Tanaka Akira  <akr@fsij.org>
+
+	* test/lib/minitest/unit.rb: Show leaked threads and tempfiles.
+
+Sun May 25 08:54:38 2014  SHIBATA Hiroshi  <shibata.hiroshi@gmail.com>
+
+	* test/openssl/test_partial_record_read.rb: Testing read_nonblock on
+	  a partial TLS record results in IO::WaitReadable by @mohamedhafez.
+	  [fix GH-547]
+
+Sun May 25 08:43:16 2014  SHIBATA Hiroshi  <shibata.hiroshi@gmail.com>
+
+	* lib/logger.rb: refactored to include Logger::Period.
+
+Sun May 25 06:50:19 2014  Zachary Scott  <e@zzak.io>
+
+	* vm_eval.c: [DOC] Improve instance_eval description when given a
+	  block or String arguments. By @nathanl via documenting-ruby/ruby#28
+
+Sun May 25 06:29:39 2014  Zachary Scott  <e@zzak.io>
+
+	* array.c: [DOC] Clarify default argument for Array.new.
+	  By @Elffers [Fixes GH-610]
+
+Sat May 24 22:37:20 2014  SHIBATA Hiroshi  <shibata.hiroshi@gmail.com>
+
+	* array.c: [DOC] Add more documents to shuffle! and shuffle.
+	  Contributed by @JuanitoFatas [ci skip][fix GH-612]
+
+Sat May 24 22:28:55 2014  SHIBATA Hiroshi  <shibata.hiroshi@gmail.com>
+
+	* test/lib/minitest/.document: removed unused configuration.
+
+Sat May 24 19:08:47 2014  Tanaka Akira  <akr@fsij.org>
+
+	* test/lib/minitest/spec.rb: Unused file removed.
+
+	* test/lib/minitest/autorun.rb: Don't require minitest/spec.
+
+	* test/lib/minitest/benchmark.rb: Ditto.
+
+Sat May 24 18:45:30 2014  Tanaka Akira  <akr@fsij.org>
+
+	* test/benchmark/test_benchmark.rb: Use test/unit.
+
+Sat May 24 16:20:59 2014  Eric Wong  <e@80x24.org>
+
+	* process.c (proc_getgroups, proc_setgroups): use ALLOCV_N
+	  [Bug #9856]
+
+Sat May 24 15:49:39 2014  Tanaka Akira  <akr@fsij.org>
+
+	* test/lib/minitest/unit.rb (parallelize_me!): Removed.
+	  This fixes the line-by-line structure of the test result in verbose
+	  mode.  [ruby-core:54905]
+
+	* test/lib/minitest/parallel_each.rb: Removed.
+
+	* test/minitest/test_minitest_mock.rb: Don't call parallelize_me!.
+
+	* test/minitest/test_minitest_spec.rb: Ditto.
+
+	* test/minitest/test_minitest_unit.rb: Ditto.
+	  Tests for parallel feature removed.
+
+Sat May 24 15:29:10 2014  Tanaka Akira  <akr@fsij.org>
+
+	* test/lib/minitest/hell.rb: Unused file removed.
+
+	* test/lib/minitest/pride.rb: Ditto.
+
+Sat May 24 15:05:32 2014  yui-knk  <spiketeika@gmail.com>
+
+	* enumerator.c (yielder_yield_push): Insert a break after the
+	  method return value.  [fix GH-617]
+
+Sat May 24 14:59:12 2014  Tanaka Akira  <akr@fsij.org>
+
+	* test/lib/minitest: Remove comments not appropriate now.
+
+	* test/minitest: Ditto.
+
+Sat May 24 14:02:04 2014  SHIBATA Hiroshi  <shibata.hiroshi@gmail.com>
+
+	* NEWS: added minitest changes.
+
+Sat May 24 13:42:46 2014  SHIBATA Hiroshi  <shibata.hiroshi@gmail.com>
+
+	* test/lib/test/unit/test-unit.gemspec: removed needless gemspec file.
+
+Sat May 24 09:39:06 2014  SHIBATA Hiroshi  <shibata.hiroshi@gmail.com>
+
+	* defs/default_gems: removed minitest entry.
+
+Sat May 24 06:17:33 2014  Ryan Davis  <ryand-ruby@zenspider.com>
+
+	*  lib/minitest: minitest 4.7.5 removed. Need to support proper
+	  gem packaging / installation before minitest 5 can be added.
+
+Sat May 24 05:54:06 2014  Tanaka Akira  <akr@fsij.org>
+
+	* ext/socket/mkconstants.rb: More constants
+
+Sat May 24 00:25:34 2014  Ayumu AIZAWA  <ayumu.aizawa@gmail.com>
+
+	* NEWS: add information of incompatibility about Prime.prime?
+	* lib/prime.rb: fix docs.
+
+Fri May 23 21:36:28 2014  Josh Goebel  <dreamer3@gmail.com>
+
+	* net/protocol.rb (using_each_crlf_line): fix SMTP dot-stuffing
+	  for messages not ending with a new-line.
+	  [ruby-core:61441] [Bug #9627] [fix GH-616]
+
+Fri May 23 03:48:08 2014  Eric Wong  <e@80x24.org>
+
+	* gc.c (rb_free_m_tbl): mark function as static
+
+	* method.h (rb_free_m_tbl): remove prototype
+
+Thu May 22 22:58:27 2014  Tanaka Akira  <akr@fsij.org>
+
+	* ext/socket/mkconstants.rb: More TCP option constants.
+	  Describe Linux and glibc versions.
+
+Thu May 22 20:38:10 2014  NARUSE, Yui  <naruse@ruby-lang.org>
+
+	* file.c (stat_birthtime): add birthtime support [Feature #9647]
+
+	* file.c (rb_stat_birthtime): add File::Stat.birthtime
+
+	* file.c (rb_file_s_birthtime): add File.birthtime
+
+	* file.c (rb_file_birthtime): add File#birthtime
+
+	* configure.in: check struct stat.st_birthtimespec.
+
+Thu May 22 19:38:14 2014  NARUSE, Yui  <naruse@ruby-lang.org>
+
+	* file.c: remove IO::Statfs because of reject. [Feature #9772]
+
+Thu May 22 14:02:13 2014  Nobuyoshi Nakada  <nobu@ruby-lang.org>
+
+	* enc/jis/props.kwd: constify character property tables of JIS
+	  based encodings by perfect hash.
+
+	* enc/euc_jp.c, enc/shift_jis.c: use character property functions.
+
+Wed May 21 12:21:10 2014  Tanaka Akira  <akr@fsij.org>
+
+	* ext/socket/option.c: Fix compilation error on Android.
+	  Bionic doesn't define TCP state constants.
+
+Wed May 21 11:42:31 2014  Nobuyoshi Nakada  <nobu@ruby-lang.org>
+
+	* configure.in: workaround for Info.plist to get rid of `dsymutil`
+	  crash by wrong files in parent directories.
+	  [ruby-core:62594] [Bug #9840]
+
+Tue May 20 20:57:34 2014  SHIBATA Hiroshi  <shibata.hiroshi@gmail.com>
+
+	* test/ruby/test_dir.rb (test_glob): added testcase of double
+	  slash path.
+
+Tue May 20 04:58:54 2014  Tanaka Akira  <akr@fsij.org>
+
+	* ext/socket/extconf.rb: Don't check fields of struct tcp_info if the
+	  structure is not available.
+
+Mon May 19 23:13:33 2014  Tanaka Akira  <akr@fsij.org>
+
+	* ext/socket/option.c (inspect_tcp_info): Permit longer data.  (glibc
+	  2.7 adds tcpi_rcv_rtt, tcpi_rcv_space and tcpi_total_retrans to
+	  struct tcp_info.)
+
+Mon May 19 20:49:07 2014  Tanaka Akira  <akr@fsij.org>
+
+	* ext/socket/option.c (inspect_tcp_info): New function to inspect
+	  struct tcp_info.
+	  (sockopt_inspect): Use inspect_tcp_info.
+
+	* ext/socket/extconf.rb: Check tcp_info related things.
+
+	* ext/socket/rubysocket.h: Include netinet/tcp_fsm.h if available.
+
+Mon May 19 19:36:39 2014  Tanaka Akira  <akr@fsij.org>
+
+	* test/dbm/test_dbm.rb: Use Etc.uname.
+
+	* test/gdbm/test_gdbm.rb: Ditto.
+
+Mon May 19 16:54:22 2014  Nobuyoshi Nakada  <nobu@ruby-lang.org>
+
+	* ext/etc/etc.c (etc_uname): add support for Windows using
+	  GetVersionExW(), GetSystemInfo(), and GetComputerNameExW() with
+	  `ComputerNameDnsHostname`.  [Feature #9842]
+
+Mon May 19 16:29:48 2014  Nobuyoshi Nakada  <nobu@ruby-lang.org>
+
+	* string.c (rb_pat_search): advance by byte offset but not by char
+	  offset.  [ruby-core:62669] [Bug #9849]
+
+Mon May 19 14:06:18 2014  Shota Fukumori  <her@sorah.jp>
+
+	* bin/testrb: Removed. Forgot to remove in r45971.
+	  [Feature #9711] [ruby-core:62620]
+
+Sun May 18 16:42:08 2014  Tanaka Akira  <akr@fsij.org>
+
+	* test/ruby/test_m17n_comb.rb (test_str_crypt): Use Etc.confstr to
+	  detect the glibc version.
+	  libc.so is not an executable on Debian GNU/kFreeBSD 7.0 (wheezy).
+
+Sun May 18 12:15:54 2014  Jonathan Mukai-Heidt  <johnnymukai@gmail.com>
+
+	* io.c (argf_each_line, argf_inplace_mode_set): [DOC] Update ARGF
+	  documentation examples.  `ARGF.lines` has been deprecated in
+	  favor of `ARGF.each_line`.  [Fixes GH-615]
+
+Sun May 18 11:59:25 2014  Tanaka Akira  <akr@fsij.org>
+
+	* missing/nextafter.c: Include ruby/missing.h.
+
+Sun May 18 11:09:28 2014  Tanaka Akira  <akr@fsij.org>
+
+	* win32/Makefile.sub: Add nextafter.obj to MISSING.
+
+Sun May 18 10:46:04 2014  Tanaka Akira  <akr@fsij.org>
+
+	* ext/etc/etc.c: Etc.sysconf, Etc.confstr and IO#pathconf implemented.
+
+	* ext/etc/extconf.rb: Check sysconf(), confstr() and fpathconf().
+
+	* ext/etc/mkconstants.rb: New file.
+
+	   [ruby-core:62600] [Feature #9842]
+
+Sun May 18 09:58:17 2014  Tanaka Akira  <akr@fsij.org>
+
+	* ext/etc/etc.c: Etc.uname method implemented.
+
+	* ext/etc/extconf.rb: Check uname() function.
+
+	  [ruby-core:62139] [Feature #9770]
+
+Sun May 18 09:16:33 2014  Tanaka Akira  <akr@fsij.org>
+
+	* configure.in: Check nextafter() availability.
+
+	* include/ruby/missing.h (nextafter): New optional declaration.
+
+	* missing/nextafter.c: New file.
+
+	* numeric.c: Float#next_float and Float#prev_float implemented.
+
+	   [ruby-core:62562] [Feature #9834]
+
+Sun May 18 09:02:17 2014  Tanaka Akira  <akr@fsij.org>
+
+	* enum.c: Enumerable#slice_after implemented.
+
+	* enumerator.c: Enumerator::Lazy#slice_after implemented.
+
+	  Requested by Tsuyoshi Sawada.  [ruby-core:58123] [Feature #9071]
+
+Sun May 18 08:22:25 2014  Nobuyoshi Nakada  <nobu@ruby-lang.org>
+
+	* io.c (io_setstrbuf): always check if the buffer is modifiable.
+	  [ruby-core:62643] [Bug #9847]
+
+Sun May 18 01:21:23 2014  Tanaka Akira  <akr@fsij.org>
+
+	* include/ruby/ruby.h: Hide Rational internal.
+	  (RRational): Moved to internal.h
+	  (RRATIONAL): Ditto.
+	  (RRATIONAL_SET_NUM): Moved to rational.c.
+	  (RRATIONAL_SET_DEN): Ditto.
+
+	* rational.c (rb_rational_num): New function.
+	  (rb_rational_den): Ditto.
+
+	* include/ruby/intern.h (rb_rational_num): Declared.
+	  (rb_rational_den): Ditto.
+
+	* ext/bigdecimal/bigdecimal.c: Follow the above change.
+
+	* ext/date/date_core.c: Ditto.
+
+	  [ruby-core:60665] [Feature #9513]
+
+Sat May 17 17:04:32 2014  Shota Fukumori  <her@sorah.jp>
+
+	* NEWS: Add news about removal of lib/test/**/*.rb.
+
+Sat May 17 16:57:33 2014  Shota Fukumori  <her@sorah.jp>
+
+	* lib/test: Removed because ruby's test cases now independent to
+	  lib/test by r45970. [Feature #9711] [ruby-core:62620]
+
+	  I'm still considering about the future of lib/minitest, lib/test.
+	  (bundling gems?)
+
+Sat May 17 15:06:40 2014  SHIBATA Hiroshi  <shibata.hiroshi@gmail.com>
+
+	* test/runner.rb: remove dependency test-unit and minitest
+	  from stdlib when running with test-all.
+	  [Feature #9711][ruby-core:61890]
+	* test/testunit/*.rb: ditto.
+	* test/lib: ditto.
+
+Sat May 17 11:02:49 2014  Nobuyoshi Nakada  <nobu@ruby-lang.org>
+
+	* dir.c (glob_helper): try match PLAIN as well as ALPHA, which are
+	  separated by previous commits.  [ruby-core:61552] [Bug #9648]
+
+	* dir.c (glob_make_pattern): set PLAIN for non-magical path to
+	  skip parts which not need to glob.
+	  [ruby-core:61552] [Bug #9648]
+
+	* dir.c (has_magic): return ALPHA at alphabetical name regardless
+	  FNM_CASEFOLD flag.
+
+	* dir.c (glob_helper): fix conditions for ALPHA.
+	  [ruby-core:61552] [Bug #9648]
+
+Sat May 17 01:49:27 2014  Nobuyoshi Nakada  <nobu@ruby-lang.org>
+
+	* dir.c (glob_helper): reduce matching at non-magical path on
+	  Windows.
+
+Sat May 17 01:49:23 2014  Nobuyoshi Nakada  <nobu@ruby-lang.org>
+
+	* dir.c (glob_pattern_type): separate names with alphabet but no
+	  magical from plain.
+
+	* dir.c (glob_helper): match plain names as-is to treat super-root
+	  same as the root.  [ruby-core:61552] [Bug #9648]
+
+Fri May 16 17:38:22 2014  Koichi Sasada  <ko1@atdot.net>
+
+	* gc.c (gc_marks, gc_marks_body): increase the counter of young objects
+	  at the major GC because AGE2Promotion changes all old objects into
+	  young objects at major GC.
+
+Fri May 16 17:26:24 2014  Koichi Sasada  <ko1@atdot.net>
+
+	* gc.c (gc_before_sweep): heap_pages_swept_slots should contains
+	  heap_pages_increment.
+
+	  For example, GC by exceeding malloc_limit can remain
+	  heap_pages_increment.
+
+Thu May 15 21:18:43 2014  Hiroshi Shirosaki  <h.shirosaki@gmail.com>
+
+	* configure.in: enable SSE2 on mingw. target='i386-pc-mingw32'.
+	  [ruby-core:62095] [Bug #8358]
+
+Thu May 15 21:04:06 2014  Hiroshi Shirosaki  <h.shirosaki@gmail.com>
+
+	* lib/test/unit/parallel.rb: fix test-all parallel failure if a test
+	  is skipped after raise.
+	  DL::TestFunc#test_sinf is skipped after raise on mingw ruby.
+	  But it causes Marshal.load failure due to undefined class/module
+	  DL::DLError when doing test-all parallel and test-all doesn't
+	  complete. We create new MiniTest::Skip object to avoid Marshal.load
+	  failure.
+	  [ruby-core:62133] [Bug #9767]
+
+	* test/testunit/test_parallel.rb (TestParallel): add a test.
+
+	* test/testunit/tests_for_parallel/ptest_forth.rb: ditto.
+
+Thu May 15 18:57:23 2014  Koichi Sasada  <ko1@atdot.net>
+
+	* gc.c (garbage_collect_body): move gc_heap_prepare_minimum_pages()
+	  from gc_sweep().
+
+Thu May 15 18:51:25 2014  Koichi Sasada  <ko1@atdot.net>
+
+	* gc.c (heap_extend_pages): calculate next growing heap size.
+
+	* gc.c (heap_set_increment): accept addition pages instead of
+	  minimum pages.
+
+	* gc.c (gc_after_sweep): use heap_etend_pages().
+
+	* gc.c (gc_heap_prepare_minimum_pages): add only 1 page.
+
+	* gc.c (heap_ready_to_gc): add only 1 page.
+
+Thu May 15 18:42:49 2014  Koichi Sasada  <ko1@atdot.net>
+
+	* gc.c: introduce macros to remove magic number.
+
+	  GC_HEAP_FREE_SLOTS_MIN_RATIO = 0.3: guarantee minimum empty slots
+	                                      ratio after sweep.
+	  GC_HEAP_FREE_SLOTS_MAX_RATIO = 0.8: allow to free pages 0.2 (= 1-0.8)
+	                                      of current existing slots.
+
+Thu May 15 17:32:51 2014  Hiroshi Shirosaki  <h.shirosaki@gmail.com>
+
+	* thread_win32.c (rb_w32_stack_overflow_handler): use Structured
+	  Exception Handling by AddVectoredExceptionHandler() for machine
+	  stack overflow on mingw.
+	  This would be equivalent to the handling using __try and __except
+	  on mswin introduced by r43748.
+
+Wed May 14 19:31:03 2014  Koichi Sasada  <ko1@atdot.net>
+
+	* ext/openssl/depend: remove dependency from internal headers.
+	  [Feature #9612]
+
+	* ext/openssl/ossl.c (ossl_fips_mode_set): ditto.
+
+	* ext/coverage/depend: ditto.
+
+	* include/ruby/thread_native.h: added.
+
+	  This header file only provides wrapper functions to control
+	  native threads. These wrapper functions are used by MRI
+	  implementation.
+
+	* vm_core.h: use include/ruby/thread_native.h.
+
+	* thread.c: ditto.
+
+	* thread_pthread.h: ditto.
+
+	* thread_win32.h: ditto.
+
+	* thread_native.h: removed.
+
+Wed May 14 18:03:28 2014  Koichi Sasada  <ko1@atdot.net>
+
+	* gc.c: enable RGENGC_AGE2_PROMOTION.
+
+Wed May 14 18:02:30 2014  Koichi Sasada  <ko1@atdot.net>
+
+	* gc.c (rgengc_rememberset_mark): promote remembered object earlier.
+
+Mon May 12 23:57:15 2014  Nobuyoshi Nakada  <nobu@ruby-lang.org>
+
+	* configure.in (rb_cv_atan2_inf_c99): check whether runtime atan2
+	  handles Inf as C99. [ruby-core:62536] [Bug #9831]
+
+Mon May 12 20:33:01 2014  Tanaka Akira  <akr@fsij.org>
+
+	* configure.in: Invoke AC_REPLACE_FUNCS for each function.
+
+Mon May 12 19:52:11 2014  Koichi Sasada  <ko1@atdot.net>
+
+	* gc.c: count young object correctly and show it in GC.stat
+	  on RGENGC_AGE2_PROMOTION.
+
+	* gc.c (RVALUE_PROMOTE_YOUNG): decrement young object count on
+	  YOUNG->OLD.
+
+	* gc.c (obj_free): decrement young object count when young object
+	  freed.
+
+	* gc.c (gc_marks): should not clear young object count.
+
+	* gc.c (gc_stat_internal): GC.stat :young_object information.
+
+Mon May 12 01:30:59 2014  Tanaka Akira  <akr@fsij.org>
+
+	* ext/socket/ifaddr.c (IS_IFADDRS): Unused macro removed.
+
+	* ext/strscan/strscan.c (BUFSIZE): Ditto.
+
+	* ext/zlib/zlib.c (OBJ_IS_FREED): Ditto.
+
+Sun May 11 22:27:18 2014  Tanaka Akira  <akr@fsij.org>
+
+	* compile.c (BUFSIZE): Unused macro removed.
+
+	* vm.c (BUFSIZE): Ditto.
+
+	* pack.c (INT64toNUM): Ditto.
+	  (UINT64toNUM): Ditto.
+	  (BYTEWIDTH): Ditto.
+
+	* time.c (lshift): Ditto.
+	  (UINT64toNUM): Ditto.
+	  (id_lshift): Unused variable removed.
+
+Sun May 11 21:23:27 2014  Tanaka Akira  <akr@fsij.org>
+
+	* pack.c (swaps): Unused macro removed.
+	  (swapi): Ditto.
+	  (swapl): Ditto.
+	  (swapll): Ditto.
+
+Sun May 11 08:02:49 2014  Eric Wong  <e@80x24.org>
+
+	* vm_core.h (rb_vm_t): list_head and counter for living_threads
+	  (rb_thread_t): vmlt_node for living_threads linkage
+	  (rb_vm_living_threads_init): new function wrapper
+	  (rb_vm_living_threads_insert): ditto
+	  (rb_vm_living_threads_remove): ditto
+	* vm.c (rb_vm_living_threads_foreach): new function wrapper
+	* thread.c (terminate_i, thread_start_func_2, thread_create_core,
+	  thread_fd_close_i, thread_fd_close): update to use new APIs
+	* vm.c (vm_mark_each_thread_func, rb_vm_mark, ruby_vm_destruct,
+	  vm_memsize, vm_init2, Init_VM): ditto
+	* vm_trace.c (clear_trace_func_i, rb_clear_trace_func): ditto
+	* benchmark/bm_vm_thread_close.rb: added to show improvement
+	* ccan/build_assert/build_assert.h: added as a dependency of list.h
+	* ccan/check_type/check_type.h: ditto
+	* ccan/container_of/container_of.h: ditto
+	* ccan/licenses/BSD-MIT: ditto
+	* ccan/licenses/CC0: ditto
+	* ccan/str/str.h: ditto (stripped of unused macros)
+	* ccan/list/list.h: ditto
+	* common.mk: add CCAN_LIST_INCLUDES
+	  [ruby-core:61871][Feature #9632 (part 1)]
+
+Sun May 11 01:10:31 2014  Nobuyoshi Nakada  <nobu@ruby-lang.org>
+
+	* signal.c (rb_f_kill): directly enqueue an ignored signal to self,
+	  except for SIGSEGV and SIGBUS.  [ruby-dev:48203] [Bug #9820]
+
+Sat May 10 22:37:56 2014  Nobuyoshi Nakada  <nobu@ruby-lang.org>
+
+	* dir.c (push_glob): match in UTF-8 on Mac OS X.
+	  [ruby-dev:48213] [Bug #9825]
+
+Sat May 10 13:32:18 2014  Nobuyoshi Nakada  <nobu@ruby-lang.org>
+
+	* thread.c (thread_start_func_2): stop if forked in a sub-thread,
+	  the thread has become the main thread.
+	  [ruby-core:62070] [Bug #9751]
+
 Sat May 10 09:32:19 2014  SHIBATA Hiroshi  <shibata.hiroshi@gmail.com>
 
 	* man/ruby.1: remove deadlink. [ruby-core:62145][Bug #9773]
