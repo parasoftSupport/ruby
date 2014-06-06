@@ -1,3 +1,195 @@
+Sat Jun  7 06:03:11 2014  Benoit Daloze  <eregontp@gmail.com>
+
+	* ext/digest/digest.c (rb_digest_instance_equal):
+	  fix #== for non-string arguments. [ruby-core:62967] [Bug #9913]
+
+	* test/digest/test_digest.rb: add test for above.
+
+Fri Jun  6 22:19:26 2014  Nobuyoshi Nakada  <nobu@ruby-lang.org>
+
+	* compile.c (private_recv_p): check by node type, instead of a
+	  magic number.
+
+	* node.h (NODE_PRIVATE_RECV), parse.y (attrset_gen): remove
+
+Fri Jun  6 17:07:08 2014  Nobuyoshi Nakada  <nobu@ruby-lang.org>
+
+	* compile.c (iseq_compile_each), parse.y (new_attr_op_assign_gen):
+	  allow op assign to a private attribute.
+	  [ruby-core:62949] [Bug #9907]
+
+Fri Jun  6 13:39:32 2014  Nobuyoshi Nakada  <nobu@ruby-lang.org>
+
+	* io.c (io_setstrbuf, io_read): should not shorten the given buffer until
+	  read succeeds.  [ruby-core:55951] [Bug #8625]
+
+Fri Jun  6 07:41:41 2014  Aaron Patterson <aaron@tenderlovemaking.com>
+
+	* ext/psych/lib/psych/visitors/yaml_tree.rb: dump empty symbols with a
+	  tag so that they can be parsed on input. [Bug #9873] [ruby-core:62825]
+	* test/psych/test_symbol.rb: test for change
+
+Thu Jun  5 16:08:39 2014  Koichi Sasada  <ko1@atdot.net>
+
+	* gc.c (gc_page_sweep): refactoring.
+
+	* gc.c (gc_page_sweep): should not set, but add final_slots into
+	  sweep_page->final_slots.
+
+Thu Jun  5 14:36:24 2014  Nobuyoshi Nakada  <nobu@ruby-lang.org>
+
+	* configure.in (jemalloc): check for the header regardless drop-in
+	  libjemalloc is found, for `malloc_conf` declaration.
+
+	* version.c (ruby_show_version): show `malloc_conf` if set.
+	  [Feature #9113]
+
+	* configure.in (with-jemalloc): also check for header, for ABIs
+	  which JEMALLOC_MANGLE is needed, i.e., Mach-O and PE-COFF
+	  platforms.  [ruby-core:62939] [Feature #9113]
+
+	* include/ruby/missing.h: include alternative malloc header to
+	  replace memory management functions.
+
+	* dln.c, io.c, parse.y, st.c: undef malloc family before
+	  re-definition to suppress warnings.
+
+Thu Jun  5 12:52:18 2014  SHIBATA Hiroshi  <shibata.hiroshi@gmail.com>
+
+	* man/ruby.1: remove rubyforge entry.
+
+Thu Jun  5 12:45:32 2014  SHIBATA Hiroshi  <shibata.hiroshi@gmail.com>
+
+	* misc/README: use github link instead of rubyforge.
+
+Thu Jun  5 10:03:29 2014  Koichi Sasada  <ko1@atdot.net>
+
+	* gc.c (obj_free): check also FL_PROMOTED bit by RVALUE_OLD_P().
+
+Thu Jun  5 03:45:28 2014  Eric Wong  <e@80x24.org>
+
+	* configure.in: add --with-jemalloc option
+	  [ruby-core:62912]
+
+Wed Jun  4 22:28:14 2014  Koichi Sasada  <ko1@atdot.net>
+
+	* gc.c: introduce RZombie to manage zombie objects.
+	  Rewrite finalizing logics with this type.
+
+	* gc.c (gc_verify_internal_consistency): verify zombie (finalizing)
+	  objects count.
+
+Wed Jun  4 22:09:53 2014  Nobuyoshi Nakada  <nobu@ruby-lang.org>
+
+	* re.c (match_aref, rb_reg_regsub): consider encoding of captured
+	  names, encoding-incompatible should not match.
+	  [ruby-dev:48278] [Bug #9903]
+
+Wed Jun  4 21:23:52 2014  Nobuyoshi Nakada  <nobu@ruby-lang.org>
+
+	* re.c (match_aref): should not ignore name after NUL byte.
+	  [ruby-dev:48275] [Bug #9902]
+
+Wed Jun  4 04:08:37 2014  Nobuyoshi Nakada  <nobu@ruby-lang.org>
+
+	* vm.c (core_hash_merge_kwd): should return the result hash, which
+	  may be converted from and differ from the given argument.
+	  [ruby-core:62921] [Bug #9898]
+
+Tue Jun  3 23:32:34 2014  Tanaka Akira  <akr@fsij.org>
+
+	* ruby.c (load_file_internal2): Extracted from load_file_internal.
+	  (load_file_internal): Invoke load_file_internal2 using rb_protect.
+	  Close an opened FD if load_file_internal2 raises an exception.
+
+Tue Jun  3 19:11:45 2014  Koichi Sasada  <ko1@atdot.net>
+
+	* gc.c (rb_objspace_free): should not rest_sweep() here.
+	  Some data structures are already freed.
+
+Tue Jun  3 18:43:51 2014  Koichi Sasada  <ko1@atdot.net>
+
+	* test/ruby/test_gc.rb: allocate more objects to invoke GC by newobj.
+	  GC allows extending pages depends on heap_increment.
+
+Tue Jun  3 18:01:27 2014  Koichi Sasada  <ko1@atdot.net>
+
+	* gc.c (rb_gc_call_finalizer_at_exit): add
+	  gc_verify_internal_consistency() when RGENGC_CHECK_MODE >= 2.
+
+Tue Jun  3 17:54:21 2014  Koichi Sasada  <ko1@atdot.net>
+
+	* gc.c: change the counting method for young objects.
+	  clear counter at the beginning of every GC and
+	  count promoted (infant->young) objects.
+
+	  Some promotions (infant->young) are transition of promoting to old
+	  objects. We should not count such promotions.
+
+	  With this technique, we don't need to check young objects
+	  at obj_free().
+
+Tue Jun  3 16:38:19 2014  Koichi Sasada  <ko1@atdot.net>
+
+	* gc.c: add verifying counters code in gc_verify_internal_consistency().
+	  gc_verify_internal_consistency() counts all
+	  - live objects
+	  - young objects (if age2 promotion)
+	  - old objects
+	  in all pages and compares with objspace managing counters.
+
+	* gc.c (gc_after_sweep): do gc_verify_internal_consistency()
+	  when RGENGC_CHECK_MODE >= 2.
+
+Tue Jun  3 13:14:04 2014  Shugo Maeda  <shugo@ruby-lang.org>
+
+	* lib/net/imap.rb (body_type_1part): Gmail IMAP reports a body
+	  type as "MIXED" followed immediately by params
+	  [ruby-core:62864] [Bug #9885]
+	  Patch by @rayners (David Raynes). [Fixes GH-622]
+	  https://github.com/ruby/ruby/pull/622
+
+Tue Jun  3 13:18:24 2014  Koichi Sasada  <ko1@atdot.net>
+
+	* gc.c (objspace_live_slot): live slot count should not include final
+	  slot (contains T_ZOMBIE) count.
+
+Tue Jun  3 13:03:21 2014  Koichi Sasada  <ko1@atdot.net>
+
+	* gc.c (obj_free): fix spacing.
+
+Tue Jun  3 12:59:32 2014  Koichi Sasada  <ko1@atdot.net>
+
+	* gc.c (check_gen_consistency): fix error message.
+
+Tue Jun  3 12:40:23 2014  Koichi Sasada  <ko1@atdot.net>
+
+	* gc.c: count old/young objects more correctly.
+
+	* gc.c (RVALUE_DEMOTE_FROM_OLD): decrement old object count.
+
+	* gc.c (RVALUE_DEMOTE_FROM_YOUNG): decrement young object count.
+
+	* gc.c (rb_gc_resurrect): increment old object count.
+
+	* gc.c (gc_marks_body): should not add old object count.
+	  This code is completely my misunderstanding.
+
+	* gc.c (rb_gc_force_recycle): decrement young or old object count
+	  correctly.
+
+Tue Jun  3 12:26:47 2014  Koichi Sasada  <ko1@atdot.net>
+
+	* test/ruby/memory_status.rb: add $LOAD_PATH to load test/unit
+	  correctly for fiddle/import unavailable environments.
+
+Tue Jun  3 09:45:13 2014  NAKAMURA Usaku  <usa@ruby-lang.org>
+
+	* test/openssl/test_ssl.rb (OpenSSL::TestSSL#test_verify_result):
+	  shouldn't use same server for respective tests, because the 1st
+	  test sometimes kills the server main loop silently.
+	  [Bug #9881] [ruby-dev:48266]
+
 Tue Jun  3 01:34:59 2014  Zachary Scott  <e@zzak.io>
 
 	* README.EXT: [DOC] Add rb_call_super when subclassing from @robin850

@@ -21,6 +21,7 @@
 #include <errno.h>
 #include "ruby_atomic.h"
 
+#undef free
 #define free(x) xfree(x)
 
 #if defined(DOSISH) || defined(__CYGWIN__)
@@ -2371,9 +2372,6 @@ io_setstrbuf(VALUE *str, long len)
 	long clen = RSTRING_LEN(s);
 	if (clen >= len) {
 	    rb_str_modify(s);
-	    if (clen != len) {
-		rb_str_set_len(s, len);
-	    }
 	    return;
 	}
 	len -= clen;
@@ -2901,7 +2899,10 @@ io_read(int argc, VALUE *argv, VALUE io)
 
     GetOpenFile(io, fptr);
     rb_io_check_byte_readable(fptr);
-    if (len == 0) return str;
+    if (len == 0) {
+	io_set_read_length(str, 0);
+	return str;
+    }
 
     READ_CHECK(fptr);
 #if defined(RUBY_TEST_CRLF_ENVIRONMENT) || defined(_WIN32)

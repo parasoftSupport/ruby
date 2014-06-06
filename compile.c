@@ -265,6 +265,11 @@ r_value(VALUE value)
   (debug_compile("== " desc "\n", \
                  iseq_compile_each(iseq, (anchor), (node), (poped))))
 
+#define COMPILE_RECV(anchor, desc, node) \
+    (private_recv_p(node) ? \
+     (ADD_INSN(anchor, nd_line(node), putself), VM_CALL_FCALL) : \
+     (COMPILE(anchor, desc, node->nd_recv), 0))
+
 #define OPERAND_AT(insn, idx) \
   (((INSN*)(insn))->operands[(idx)])
 
@@ -2786,6 +2791,8 @@ compile_cpath(LINK_ANCHOR *ret, rb_iseq_t *iseq, NODE *cpath)
     }
 }
 
+#define private_recv_p(node) (nd_type((node)->nd_recv) == NODE_SELF)
+
 #define defined_expr defined_expr0
 static int
 defined_expr(rb_iseq_t *iseq, LINK_ANCHOR *ret,
@@ -2893,7 +2900,7 @@ defined_expr(rb_iseq_t *iseq, LINK_ANCHOR *ret,
 
 	switch (type) {
 	  case NODE_ATTRASGN:
-	    if (node->nd_recv == (NODE *)1) break;
+	    if (private_recv_p(node)) break;
 	  case NODE_CALL:
 	    self = FALSE;
 	    break;
@@ -3981,6 +3988,7 @@ iseq_compile_each(rb_iseq_t *iseq, LINK_ANCHOR *ret, NODE * node, int poped)
 	DECL_ANCHOR(args);
 	VALUE argc;
 	VALUE flag = 0;
+	VALUE asgnflag = 0;
 	ID id = node->nd_mid;
 	int boff = 0;
 
@@ -4010,7 +4018,7 @@ iseq_compile_each(rb_iseq_t *iseq, LINK_ANCHOR *ret, NODE * node, int poped)
 	if (!poped) {
 	    ADD_INSN(ret, line, putnil);
 	}
-	COMPILE(ret, "NODE_OP_ASGN1 recv", node->nd_recv);
+	asgnflag = COMPILE_RECV(ret, "NODE_OP_ASGN1 recv", node);
 	switch (nd_type(node->nd_args->nd_head)) {
 	  case NODE_ZARRAY:
 	    argc = INT2FIX(0);
@@ -4024,6 +4032,7 @@ iseq_compile_each(rb_iseq_t *iseq, LINK_ANCHOR *ret, NODE * node, int poped)
 	}
 	ADD_INSN1(ret, line, dupn, FIXNUM_INC(argc, 1 + boff));
 	ADD_SEND_R(ret, line, ID2SYM(idAREF), argc, Qfalse, LONG2FIX(flag));
+	flag |= asgnflag;
 
 	if (id == 0 || id == 1) {
 	    /* 0: or, 1: and
@@ -4119,6 +4128,7 @@ iseq_compile_each(rb_iseq_t *iseq, LINK_ANCHOR *ret, NODE * node, int poped)
       }
       case NODE_OP_ASGN2:{
 	ID atype = node->nd_next->nd_mid;
+	VALUE asgnflag;
 	LABEL *lfin = NEW_LABEL(line);
 	LABEL *lcfin = NEW_LABEL(line);
 	/*
@@ -4163,7 +4173,7 @@ iseq_compile_each(rb_iseq_t *iseq, LINK_ANCHOR *ret, NODE * node, int poped)
 
 	*/
 
-	COMPILE(ret, "NODE_OP_ASGN2#recv", node->nd_recv);
+	asgnflag = COMPILE_RECV(ret, "NODE_OP_ASGN2#recv", node);
 	ADD_INSN(ret, line, dup);
 	ADD_SEND(ret, line, ID2SYM(node->nd_next->nd_vid),
 		 INT2FIX(0));
@@ -4180,8 +4190,8 @@ iseq_compile_each(rb_iseq_t *iseq, LINK_ANCHOR *ret, NODE * node, int poped)
 	    COMPILE(ret, "NODE_OP_ASGN2 val", node->nd_value);
 	    ADD_INSN(ret, line, swap);
 	    ADD_INSN1(ret, line, topn, INT2FIX(1));
-	    ADD_SEND(ret, line, ID2SYM(node->nd_next->nd_aid),
-		     INT2FIX(1));
+	    ADD_SEND_R(ret, line, ID2SYM(node->nd_next->nd_aid),
+		       INT2FIX(1), Qfalse, INT2FIX(asgnflag));
 	    ADD_INSNL(ret, line, jump, lfin);
 
 	    ADD_LABEL(ret, lcfin);
@@ -4202,8 +4212,8 @@ iseq_compile_each(rb_iseq_t *iseq, LINK_ANCHOR *ret, NODE * node, int poped)
 		ADD_INSN(ret, line, swap);
 		ADD_INSN1(ret, line, topn, INT2FIX(1));
 	    }
-	    ADD_SEND(ret, line, ID2SYM(node->nd_next->nd_aid),
-		     INT2FIX(1));
+	    ADD_SEND_R(ret, line, ID2SYM(node->nd_next->nd_aid),
+		       INT2FIX(1), Qfalse, INT2FIX(asgnflag));
 	    ADD_INSN(ret, line, pop);
 	}
 	break;
@@ -4335,7 +4345,7 @@ iseq_compile_each(rb_iseq_t *iseq, LINK_ANCHOR *ret, NODE * node, int poped)
 	/* optimization shortcut
 	 *   obj["literal"] -> opt_aref_with(obj, "literal")
 	 */
-	if (node->nd_mid == idAREF && node->nd_recv != (NODE *)1 && node->nd_args &&
+	if (node->nd_mid == idAREF && !private_recv_p(node) && node->nd_args &&
 	    nd_type(node->nd_args) == NODE_ARRAY && node->nd_args->nd_alen == 1 &&
 	    nd_type(node->nd_args->nd_head) == NODE_STR)
 	{
@@ -5322,7 +5332,7 @@ iseq_compile_each(rb_iseq_t *iseq, LINK_ANCHOR *ret, NODE * node, int poped)
 	/* optimization shortcut
 	 *   obj["literal"] = value -> opt_aset_with(obj, "literal", value)
 	 */
-	if (node->nd_mid == idASET && node->nd_recv != (NODE *)1 && node->nd_args &&
+	if (node->nd_mid == idASET && !private_recv_p(node) && node->nd_args &&
 	    nd_type(node->nd_args) == NODE_ARRAY && node->nd_args->nd_alen == 2 &&
 	    nd_type(node->nd_args->nd_head) == NODE_STR)
 	{
@@ -5345,13 +5355,7 @@ iseq_compile_each(rb_iseq_t *iseq, LINK_ANCHOR *ret, NODE * node, int poped)
 	INIT_ANCHOR(args);
 	argc = setup_args(iseq, args, node->nd_args, &flag);
 
-	if (node->nd_recv == (NODE *) 1) {
-	    flag |= VM_CALL_FCALL;
-	    ADD_INSN(recv, line, putself);
-	}
-	else {
-	    COMPILE(recv, "recv", node->nd_recv);
-	}
+	flag |= COMPILE_RECV(recv, "recv", node);
 
 	debugp_param("argc", argc);
 	debugp_param("nd_mid", ID2SYM(node->nd_mid));

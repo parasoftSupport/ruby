@@ -35,6 +35,10 @@
 #define YYREALLOC(ptr, size)	rb_parser_realloc(parser, (ptr), (size))
 #define YYCALLOC(nelem, size)	rb_parser_calloc(parser, (nelem), (size))
 #define YYFREE(ptr)		rb_parser_free(parser, (ptr))
+#undef malloc
+#undef realloc
+#undef calloc
+#undef free
 #define malloc	YYMALLOC
 #define realloc	YYREALLOC
 #define calloc	YYCALLOC
@@ -8820,8 +8824,6 @@ new_bv_gen(struct parser_params *parser, ID name)
 static NODE *
 aryset_gen(struct parser_params *parser, NODE *recv, NODE *idx)
 {
-    if (recv && nd_type(recv) == NODE_SELF)
-	recv = (NODE *)1;
     return NEW_ATTRASGN(recv, tASET, idx);
 }
 
@@ -8894,8 +8896,6 @@ rb_id_attrget(ID id)
 static NODE *
 attrset_gen(struct parser_params *parser, NODE *recv, ID id)
 {
-    if (recv && nd_type(recv) == NODE_SELF)
-	recv = (NODE *)1;
     return NEW_ATTRASGN(recv, rb_id_attrset(id), 0);
 }
 
